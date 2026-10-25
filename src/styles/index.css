@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@media print {
+  @page {
+    size: auto;
+    margin: 0;
+  }
+
+  /* 1. Sembunyikan elemen utama aplikasi secara total dari layout */
+  body > * {
+    display: none !important;
+  }
+
+  /* 2. Paksa pembungkus utama dan kontainer nota saja yang tampil */
+  body, 
+  #root, 
+  #printable-receipt {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* 3. Kembalikan semua tampilan anak elemen di dalam nota */
+  #printable-receipt * {
+    display: revert !important;
+    visibility: visible !important;
+  }
+
+  /* 4. Atur tata letak nota di pojok atas */
+  #printable-receipt {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 80mm !important; /* Sesuaikan 58mm atau 80mm */
+    margin: 0 !important;
+    padding: 8px !important;
+    background: white !important;
+  }
+}
