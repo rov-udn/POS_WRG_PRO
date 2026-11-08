@@ -1,11 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useAppMode } from '../../../hooks/useAppMode';
+import { roundPreciseQuantity } from '../../../utils/formatQuantity';
+import {
+  apakahProdukBerubahDariSnapshot,
+  beriTahuProdukDiperbarui,
+  buatSnapshotProdukTransaksi,
+  EVENT_PRODUK_DIPERBARUI,
+  hitungRasioSatuanKeBasisSaatIni
+} from '../../produk/utils/produkUtils';
 
 const KUNCI_STORAGE_RESTOCK = 'pos_warung_restock_logs';
 const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
+const KUNCI_STORAGE_ANTREAN = 'pos_warung_antrean_restock';
 
-export function useGudang() {
+export function useGudang({ onAntreanRestockDiterima } = {}) {
+  const { fitur } = useAppMode();
   const [tabAktif, setTabAktif] = useState('stok'); // 'stok', 'riwayat'
   const [keranjangRestock, setKeranjangRestock] = useState([]); // State keranjang restock massal
+  const antreanGagalTerakhir = useRef('');
   
   // Data produk dari localStorage
   const [daftarProduk, setDaftarProduk] = useState(() => {
@@ -16,6 +28,32 @@ export function useGudang() {
       return [];
     }
   });
+
+  useEffect(() => {
+    const muatProdukTerbaru = () => {
+      try {
+        const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
+        setDaftarProduk(data ? JSON.parse(data) : []);
+      } catch (error) {
+        console.error('Gagal memuat produk yang diperbarui:', error);
+      }
+    };
+    const tanganiStorage = (event) => {
+      if (
+        event.key === KUNCI_STORAGE_PRODUK ||
+        event.key === KUNCI_STORAGE_ANTREAN
+      ) {
+        muatProdukTerbaru();
+      }
+    };
+
+    window.addEventListener('storage', tanganiStorage);
+    window.addEventListener(EVENT_PRODUK_DIPERBARUI, muatProdukTerbaru);
+    return () => {
+      window.removeEventListener('storage', tanganiStorage);
+      window.removeEventListener(EVENT_PRODUK_DIPERBARUI, muatProdukTerbaru);
+    };
+  }, []);
 
   // Data log restock & penyesuaian (disatukan dalam satu sumber riwayat)
   const [riwayatRestock, setRiwayatRestock] = useState(() => {
@@ -54,6 +92,7 @@ export function useGudang() {
         idSatuanDipilih: satuanTerbesar?.idSatuan || '',
         namaSatuanDipilih: satuanTerbesar?.namaSatuan || 'Pcs',
         rasioDipilih: satuanTerbesar?.rasio || 1,
+        snapshotProduk: buatSnapshotProdukTransaksi(produk),
         hargaBeliMaster: satuanTerbesar?.hargaBeli || 0,
         hargaBeliBaru: satuanTerbesar?.hargaBeli || 0,
         qtyRestock: 1,
@@ -65,7 +104,6 @@ export function useGudang() {
 
   // "SATPAM" PENERIMA DATA DARI MENU BELANJA AGEN (DENGAN SAFEGUARD ANTREAN GAGAL)
   useEffect(() => {
-    const KUNCI_STORAGE_ANTREAN = 'pos_warung_antrean_restock';
     const rawAntrean = localStorage.getItem(KUNCI_STORAGE_ANTREAN);
 
     if (rawAntrean) {
@@ -74,6 +112,13 @@ export function useGudang() {
 
         if (Array.isArray(daftarKiriman) && daftarKiriman.length > 0) {
           const sisaAntreanGagal = [];
+          let adaItemDiterima = false;
+          const snapshotKeranjangPerSatuan = new Map(
+            keranjangRestock.map((item) => [
+              `${item.idProduk}:${item.idSatuanDipilih}`,
+              item.snapshotProduk
+            ])
+          );
 
           daftarKiriman.forEach((kiriman) => {
             const itemGagalPerKiriman = [];
@@ -84,6 +129,26 @@ export function useGudang() {
               if (produkMaster) {
                 const listSatuan = produkMaster.listSatuan || [];
                 const satuanDipilih = listSatuan.find((s) => s.idSatuan === itemAgen.idSatuan) || listSatuan[0] || {};
+                const rasioAktif = hitungRasioSatuanKeBasisSaatIni(itemAgen, produkMaster);
+                const snapshotTidakAman =
+                  fitur.ubahStok &&
+                  (rasioAktif === null || !itemAgen.snapshotProduk);
+                const kunciSatuan = `${itemAgen.idProduk}:${itemAgen.idSatuan}`;
+                const adaSnapshotTersimpan = snapshotKeranjangPerSatuan.has(kunciSatuan);
+                const snapshotBerbeda =
+                  fitur.ubahStok &&
+                  adaSnapshotTersimpan &&
+                  JSON.stringify(snapshotKeranjangPerSatuan.get(kunciSatuan)) !==
+                    JSON.stringify(itemAgen.snapshotProduk);
+
+                if (snapshotTidakAman || snapshotBerbeda) {
+                  itemGagalPerKiriman.push(itemAgen);
+                  return;
+                }
+                if (!adaSnapshotTersimpan) {
+                  snapshotKeranjangPerSatuan.set(kunciSatuan, itemAgen.snapshotProduk);
+                }
+                adaItemDiterima = true;
 
                 setKeranjangRestock((prev) => {
                   const eksisIndex = prev.findIndex(
@@ -92,10 +157,18 @@ export function useGudang() {
 
                   if (eksisIndex > -1) {
                     const baru = [...prev];
-                    baru[eksisIndex] = {
-                      ...baru[eksisIndex],
-                      qtyRestock: baru[eksisIndex].qtyRestock + itemAgen.qty
-                    };
+                    baru[eksisIndex] = fitur.ubahStok
+                      ? {
+                          ...baru[eksisIndex],
+                          qtyRestock: roundPreciseQuantity(
+                            Number(baru[eksisIndex].qtyRestock) + Number(itemAgen.qty)
+                          )
+                        }
+                      : {
+                          ...baru[eksisIndex],
+                          hargaBeliBaru: Number(itemAgen.hargaBeli) || Number(satuanDipilih.hargaBeli) || 0,
+                          updateHargaBeli: true
+                        };
                     return baru;
                   } else {
                     const itemKeranjangBaru = {
@@ -106,10 +179,11 @@ export function useGudang() {
                       listSatuan: listSatuan,
                       idSatuanDipilih: itemAgen.idSatuan,
                       namaSatuanDipilih: itemAgen.namaSatuan,
-                      rasioDipilih: Number(itemAgen.rasio) || 1,
+                      rasioDipilih: rasioAktif ?? (Number(itemAgen.rasio) || 1),
+                      snapshotProduk: itemAgen.snapshotProduk || null,
                       hargaBeliMaster: Number(satuanDipilih.hargaBeli) || 0,
                       hargaBeliBaru: Number(itemAgen.hargaBeli) || Number(satuanDipilih.hargaBeli) || 0,
-                      qtyRestock: itemAgen.qty,
+                      qtyRestock: fitur.ubahStok ? itemAgen.qty : 0,
                       updateHargaBeli: true
                     };
                     return [...prev, itemKeranjangBaru];
@@ -130,19 +204,25 @@ export function useGudang() {
 
           if (sisaAntreanGagal.length > 0) {
             localStorage.setItem(KUNCI_STORAGE_ANTREAN, JSON.stringify(sisaAntreanGagal));
+            const antreanGagal = JSON.stringify(sisaAntreanGagal);
+            if (antreanGagal !== antreanGagalTerakhir.current) {
+              antreanGagalTerakhir.current = antreanGagal;
+              alert(
+                '❌ Sebagian antrean restock belum dapat diproses karena data snapshot produk atau satuannya tidak aman. Antrean dipertahankan agar tidak hilang; periksa master produk lalu kirim ulang.'
+              );
+            }
           } else {
             localStorage.removeItem(KUNCI_STORAGE_ANTREAN);
+            antreanGagalTerakhir.current = '';
           }
           
-          if (typeof setBukaModalKeranjang === 'function') {
-            setBukaModalKeranjang(true);
-          }
+          if (adaItemDiterima) onAntreanRestockDiterima?.();
         }
       } catch (e) {
         console.error("Gagal menyerap data antrean restock:", e);
       }
     }
-  }, [daftarProduk]);
+  }, [daftarProduk, fitur.ubahStok, keranjangRestock, onAntreanRestockDiterima]);
 
   // Update item di dalam keranjang restock
   const ubahItemKeranjang = (idProduk, field, val) => {
@@ -174,25 +254,84 @@ export function useGudang() {
 
   // Eksekusi Massal (Bulk Restock)
   const prosesRestockMassal = (catatanUmum) => {
-    if (keranjangRestock.length === 0) return;
+    if (keranjangRestock.length === 0) return false;
 
-    let daftarProdukBaru = [...daftarProduk];
+    let produkTerkini;
+    try {
+      produkTerkini = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');
+    } catch (error) {
+      console.error('Gagal membaca produk terbaru sebelum restock:', error);
+      alert('❌ Data produk terbaru tidak dapat dibaca. Restock belum diproses.');
+      return false;
+    }
+
+    const itemDenganRasioValid = keranjangRestock.map((item) => {
+      const produkTerkiniItem = produkTerkini.find((produk) => produk.idProduk === item.idProduk);
+      return {
+        item,
+        produk: produkTerkiniItem,
+        rasioAktif: produkTerkiniItem
+          ? hitungRasioSatuanKeBasisSaatIni(item, produkTerkiniItem)
+          : null
+      };
+    });
+    const itemProdukTidakDitemukan = itemDenganRasioValid.find(({ produk }) => !produk);
+    if (itemProdukTidakDitemukan) {
+      alert(
+          `❌ Produk "${itemProdukTidakDitemukan.item.namaProduk}" tidak ditemukan di master terbaru. Restock belum diproses.`
+      );
+      return false;
+    }
+
+    const itemTidakValid = itemDenganRasioValid.find(
+      ({ item, produk, rasioAktif }) =>
+        fitur.ubahStok &&
+        Number(item.qtyRestock) > 0 &&
+        (!produk || rasioAktif === null)
+    );
+    if (itemTidakValid) {
+      alert(
+        `❌ Satuan restock "${itemTidakValid.item.namaSatuanDipilih}" untuk produk "${itemTidakValid.item.namaProduk}" tidak dapat dikonversi ke basis terbaru. Hapus item lalu tambahkan kembali.`
+      );
+      return false;
+    }
+
+    const itemUsang = itemDenganRasioValid.filter(
+      ({ item, produk }) =>
+        apakahProdukBerubahDariSnapshot(item.snapshotProduk, produk)
+    );
+    if (
+      itemUsang.length > 0 &&
+      !window.confirm(
+        `Master produk berubah saat keranjang restock dibuat: ${itemUsang.map(({ item }) => item.namaProduk).join(', ')}. Kuantitas tetap memakai snapshot keranjang dan stok dikonversi ke basis terbaru. Lanjutkan?`
+      )
+    ) {
+      return false;
+    }
+
+    let daftarProdukBaru = [...produkTerkini];
     const logBaruList = [];
 
-    keranjangRestock.forEach((item) => {
+    itemDenganRasioValid.forEach(({ item, rasioAktif }) => {
       const produkTarget = daftarProdukBaru.find((p) => p.idProduk === item.idProduk);
       if (!produkTarget) return;
 
       const qtyRestock = Number(item.qtyRestock) || 0;
-      const rasio = Number(item.rasioDipilih) || 1;
-      const jumlahPcsTambahan = qtyRestock * rasio;
+      const rasio = (rasioAktif ?? Number(item.rasioDipilih)) || 1;
+      const jumlahPcsTambahan = fitur.ubahStok
+        ? roundPreciseQuantity(qtyRestock * rasio)
+        : 0;
       const stokSebelum = Number(produkTarget.stokUtama) || 0;
-      const stokSesudah = stokSebelum + jumlahPcsTambahan;
+      const stokSesudah = roundPreciseQuantity(stokSebelum + jumlahPcsTambahan);
 
       daftarProdukBaru = daftarProdukBaru.map((p) => {
         if (p.idProduk === item.idProduk) {
           const listSatuanBaru = p.listSatuan.map((sat) => {
-            if (sat.idSatuan === item.idSatuanDipilih && item.updateHargaBeli && Number(item.hargaBeliBaru) > 0) {
+            const perluUpdateHarga =
+              (fitur.ubahStok ? item.updateHargaBeli : fitur.ubahHargaBeli) &&
+              Number(item.hargaBeliBaru) > 0;
+
+            if (sat.idSatuan === item.idSatuanDipilih && perluUpdateHarga) {
               return { ...sat, hargaBeli: Number(item.hargaBeliBaru) };
             }
             return sat;
@@ -200,63 +339,67 @@ export function useGudang() {
 
           return {
             ...p,
-            stokUtama: stokSesudah,
+            ...(fitur.ubahStok && { stokUtama: stokSesudah }),
             listSatuan: listSatuanBaru
           };
         }
         return p;
       });
 
-      logBaruList.push({
-        idLog: `LOG-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-        idProduk: item.idProduk,
-        namaProduk: item.namaProduk,
-        tanggal: new Date().toISOString(),
-        tipeAksi: 'PENAMBAHAN',
-        alasan: 'BARANG_MASUK',
-        satuanDipilih: item.namaSatuanDipilih,
-        jumlahInput: qtyRestock,
-        rasioSaatItu: rasio,
-        totalPerubahanPcs: jumlahPcsTambahan,
-        stokSebelum,
-        stokSesudah,
-        catatan: catatanUmum || 'Restock Massal Agen'
-      });
+      if (fitur.ubahStok) {
+        logBaruList.push({
+          idLog: `LOG-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+          idProduk: item.idProduk,
+          namaProduk: item.namaProduk,
+          tanggal: new Date().toISOString(),
+          tipeAksi: 'PENAMBAHAN',
+          alasan: 'BARANG_MASUK',
+          satuanDipilih: item.namaSatuanDipilih,
+          jumlahInput: qtyRestock,
+          rasioSaatItu: rasio,
+          totalPerubahanPcs: jumlahPcsTambahan,
+          stokSebelum,
+          stokSesudah,
+          catatan: catatanUmum || 'Restock Massal Agen'
+        });
+      }
     });
 
     setDaftarProduk(daftarProdukBaru);
     localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukBaru));
-    setRiwayatRestock((prev) => [...logBaruList, ...prev]);
+    beriTahuProdukDiperbarui();
+    if (fitur.ubahStok) {
+      setRiwayatRestock((prev) => [...logBaruList, ...prev]);
+    }
     setKeranjangRestock([]);
+    return true;
   };
 
   // Fungsi penyesuaian stok disatukan ke riwayatRestock dan mengembalikan status boolean
   const prosesPenyesuaianStok = ({ idProduk, qtyPcsKurang, alasan, catatan }) => {
+    if (!fitur.ubahStok) return false;
+
     try {
-      const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
-      
-      setDaftarProduk((prevProduk) => {
-        const daftarBaru = prevProduk.map((produk) => {
-          if (produk.idProduk === idProduk) {
-            const stokLama = Number(produk.stokUtama) || 0;
-            const stokBaru = Math.max(0, stokLama - qtyPcsKurang);
+      const produkTerkini = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');
+      const produkTarget = produkTerkini.find((p) => p.idProduk === idProduk);
+      if (!produkTarget) {
+        alert('❌ Produk tidak ditemukan. Penyesuaian stok belum diproses.');
+        return false;
+      }
 
-            return {
-              ...produk,
-              stokUtama: stokBaru
-            };
-          }
-          return produk;
-        });
+      const stokSebelum = Number(produkTarget.stokUtama) || 0;
+      const jumlahPengurangan = roundPreciseQuantity(Math.max(0, Number(qtyPcsKurang) || 0));
+      const stokSesudah = Math.max(0, roundPreciseQuantity(stokSebelum - jumlahPengurangan));
+      const daftarBaru = produkTerkini.map((produk) =>
+        produk.idProduk === idProduk
+          ? { ...produk, stokUtama: stokSesudah }
+          : produk
+      );
+      localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarBaru));
+      setDaftarProduk(daftarBaru);
+      beriTahuProdukDiperbarui();
 
-        localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarBaru));
-        return daftarBaru;
-      });
-
-      const produkTarget = daftarProduk.find((p) => p.idProduk === idProduk);
       const namaProduk = produkTarget ? produkTarget.namaProduk : 'Produk';
-      const stokSebelum = produkTarget ? Number(produkTarget.stokUtama) || 0 : 0;
-      const stokSesudah = Math.max(0, stokSebelum - qtyPcsKurang);
 
       const logPenyesuaianBaru = {
         idLog: `OPNAME-${Date.now()}`,
@@ -266,9 +409,9 @@ export function useGudang() {
         tipeAksi: 'PENGURANGAN',
         alasan: alasan || 'RUSAK',
         satuanDipilih: produkTarget?.satuanTerkecil || 'Pcs',
-        jumlahInput: qtyPcsKurang,
+        jumlahInput: jumlahPengurangan,
         rasioSaatItu: 1,
-        totalPerubahanPcs: qtyPcsKurang,
+        totalPerubahanPcs: jumlahPengurangan,
         stokSebelum,
         stokSesudah,
         catatan: catatan || 'Penyesuaian Stok Gudang'

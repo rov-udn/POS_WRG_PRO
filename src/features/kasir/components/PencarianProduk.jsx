@@ -3,14 +3,16 @@ import React, { useEffect, useRef } from 'react';
 export default function PencarianProduk({
   kataKunci,
   onUbahKataKunci,
-  onScanBarcode
+  onScanBarcode,
+  searchInputRef
 }) {
-  const inputRef = useRef(null);
+  const internalInputRef = useRef(null);
+  const inputRef = searchInputRef || internalInputRef;
 
   // Auto focus ke input pencarian saat komponen dimuat
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [inputRef]);
 
   // Menangani input dari scanner barcode (mendeteksi tombol Enter)
   const handleKeyDown = (e) => {

@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
+import QuantityInput from '../../../components/ui/QuantityInput';
+import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
 
 export default function KeranjangKasir({
   keranjang,
   totalQtyItems,
   totalBayar,
   daftarDraf,
+  tampilModalDraf,
+  produkBerubah = [],
   onTahanTransaksi,
   onPanggilDraf,
   onHapusDraf,
+  onBukaModalDraf,
+  onTutupModalDraf,
   onUbahQty,
   onHapusItem,
   onResetKeranjang,
   onLanjutPembayaran
 }) {
-  const [tampilModalDraf, setTampilModalDraf] = useState(false);
-
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Header Keranjang */}
@@ -28,7 +31,7 @@ export default function KeranjangKasir({
           {daftarDraf.length > 0 && (
             <button
               type="button"
-              onClick={() => setTampilModalDraf(true)}
+              onClick={onBukaModalDraf}
               className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 font-extrabold text-xs rounded-lg border border-amber-300 transition-colors animate-pulse flex items-center gap-1"
               title="Lihat transaksi yang ditahan"
             >
@@ -53,10 +56,18 @@ export default function KeranjangKasir({
           )}
 
           <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 font-bold text-xs rounded-full">
-            {totalQtyItems} Item
+            {formatQuantity(totalQtyItems)} Item
           </span>
         </div>
       </div>
+
+      {produkBerubah.length > 0 && (
+        <div className="mx-3 mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <b>Perhatian:</b> Master produk berubah setelah item masuk keranjang atau
+          snapshot lama tidak tersedia ({[...new Set(produkBerubah)].join(', ')}).
+          Rasio dan harga keranjang tetap dibekukan; pembayaran akan meminta konfirmasi.
+        </div>
+      )}
 
       {/* Item Keranjang */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-[calc(100vh-360px)]">
@@ -99,9 +110,11 @@ export default function KeranjangKasir({
                   >
                     -
                   </button>
-                  <span className="w-8 text-center font-bold text-xs text-gray-800">
-                    {item.qty}
-                  </span>
+                  <QuantityInput
+                    value={item.qty}
+                    onChange={(qty) => onUbahQty(item.idProduk, item.idSatuan, qty)}
+                    className="w-12 text-center font-bold text-xs text-gray-800 outline-none"
+                  />
                   <button
                     type="button"
                     onClick={() => onUbahQty(item.idProduk, item.idSatuan, item.qty + 1)}
@@ -178,7 +191,7 @@ export default function KeranjangKasir({
               </h3>
               <button
                 type="button"
-                onClick={() => setTampilModalDraf(false)}
+                onClick={onTutupModalDraf}
                 className="text-white font-bold text-lg hover:opacity-80"
               >
                 ✕
@@ -187,8 +200,11 @@ export default function KeranjangKasir({
 
             <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
               {daftarDraf.map((draf) => {
-                const totalDraf = draf.items.reduce((s, i) => s + i.subtotal, 0);
-                const totalQty = draf.items.reduce((s, i) => s + i.qty, 0);
+                const totalDraf = draf.items.reduce(
+                  (sum, item) => sum + calculateSubtotal(item.hargaJualSatuan, item.qty),
+                  0
+                );
+                const totalQty = draf.items.reduce((sum, item) => sum + item.qty, 0);
 
                 return (
                   <div
@@ -201,7 +217,7 @@ export default function KeranjangKasir({
                         <span className="text-[10px] text-gray-400 font-medium">{draf.waktu}</span>
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {totalQty} item • <b className="text-amber-800">Rp{totalDraf.toLocaleString('id-ID')}</b>
+                        {formatQuantity(totalQty)} item • <b className="text-amber-800">Rp{totalDraf.toLocaleString('id-ID')}</b>
                       </div>
                     </div>
 
@@ -210,7 +226,7 @@ export default function KeranjangKasir({
                         type="button"
                         onClick={() => {
                           onPanggilDraf(draf.idDraf);
-                          setTampilModalDraf(false);
+                          onTutupModalDraf();
                         }}
                         className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
                       >

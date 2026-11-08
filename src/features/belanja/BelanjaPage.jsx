@@ -4,6 +4,7 @@ import DaftarProdukBelanja from './components/DaftarProdukBelanja';
 import KeranjangBelanja from './components/KeranjangBelanja';
 import DrafBelanjaModal from './components/DrafBelanjaModal';
 import RiwayatKulakanTab from './components/RiwayatKulakanTab';
+import { useSettings } from '../setting/hooks/useSettings';
 
 export default function BelanjaPage() {
   const [tabAktif, setTabAktif] = useState('BELANJA'); // 'BELANJA' atau 'RIWAYAT'
@@ -14,6 +15,8 @@ export default function BelanjaPage() {
     namaAgen,
     setNamaAgen,
     daftarDraf,
+    produkKeranjangBerubah,
+    produkDrafBerubah,
     daftarRiwayatKulakan,
     totalEstimasiModal,
     totalQtyItems,
@@ -29,6 +32,7 @@ export default function BelanjaPage() {
 
   const [kataKunci, setKataKunci] = useState('');
   const [tampilModalDraf, setTampilModalDraf] = useState(false);
+  const { settings } = useSettings();
 
  return (
     <div className="p-6 space-y-6">
@@ -78,6 +82,7 @@ export default function BelanjaPage() {
               totalQtyItems={totalQtyItems}
               totalEstimasiModal={totalEstimasiModal}
               namaAgen={namaAgen}
+              produkBerubah={produkKeranjangBerubah}
               jumlahDraf={daftarDraf.length}
               onUbahNamaAgen={setNamaAgen}
               onUbahQty={ubahQtyItem}
@@ -100,6 +105,8 @@ export default function BelanjaPage() {
         isOpen={tampilModalDraf}
         onClose={() => setTampilModalDraf(false)}
         daftarDraf={daftarDraf}
+        produkDrafBerubah={produkDrafBerubah}
+        profilToko={settings?.profil}
         onToggleKosong={toggleStatusKosongDraf}
         onUbahQtyReal={ubahQtyRealDraf}
         onKirimKeGudang={prosesSelesaiBelanja}

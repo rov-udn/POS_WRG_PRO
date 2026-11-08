@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import BaseModal from '../../../components/ui/BaseModal';
+import { useAppMode } from '../../../hooks/useAppMode';
 
 export default function PenyesuaianStokModal({
   isOpen,
@@ -7,6 +8,7 @@ export default function PenyesuaianStokModal({
   produk,
   onSubmitPenyesuaian
 }) {
+  const { fitur } = useAppMode();
   const [qtyPcsKurang, setQtyPcsKurang] = useState('');
   const [alasan, setAlasan] = useState('RUSAK');
   const [catatan, setCatatan] = useState('');
@@ -38,7 +40,7 @@ export default function PenyesuaianStokModal({
     alert('Penyesuaian stok berhasil disimpan!');
   };
 
-  if (!produk) return null;
+  if (!produk || !fitur.ubahStok) return null;
 
   return (
     <BaseModal

@@ -1,4 +1,6 @@
 import React from 'react';
+import QuantityInput from '../../../components/ui/QuantityInput';
+import { formatQuantity } from '../../../utils/formatQuantity';
 
 export default function KeranjangBelanja({
   keranjangBelanja,
@@ -6,6 +8,7 @@ export default function KeranjangBelanja({
   totalEstimasiModal,
   namaAgen,
   jumlahDraf = 0, // <-- Tambahan prop jumlahDraf
+  produkBerubah = [],
   onUbahNamaAgen,
   onUbahQty,
   onHapusItem,
@@ -51,7 +54,7 @@ export default function KeranjangBelanja({
           )}
 
           <span className="px-2.5 py-0.5 bg-emerald-200 text-emerald-900 font-bold text-xs rounded-full">
-            {totalQtyItems} Item
+            {formatQuantity(totalQtyItems)} Item
           </span>
         </div>
       </div>
@@ -66,6 +69,14 @@ export default function KeranjangBelanja({
           className="w-full px-3 py-2 text-xs font-semibold border border-gray-300 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
         />
       </div>
+
+      {produkBerubah.length > 0 && (
+        <div className="mx-3 mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <b>Perhatian:</b> Master produk berubah setelah barang masuk keranjang
+          ({[...new Set(produkBerubah)].join(', ')}). Qty, rasio, dan harga modal
+          pesanan tetap memakai data saat barang ditambahkan.
+        </div>
+      )}
 
       {/* Daftar Item Rencana Belanja */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-[calc(100vh-360px)]">
@@ -109,9 +120,11 @@ export default function KeranjangBelanja({
                   >
                     -
                   </button>
-                  <span className="w-8 text-center font-bold text-xs text-gray-800">
-                    {item.qty}
-                  </span>
+                  <QuantityInput
+                    value={item.qty}
+                    onChange={(qty) => onUbahQty(item.idProduk, item.idSatuan, qty)}
+                    className="w-12 text-center font-bold text-xs text-gray-800 outline-none"
+                  />
                   <button
                     type="button"
                     onClick={() => onUbahQty(item.idProduk, item.idSatuan, item.qty + 1)}

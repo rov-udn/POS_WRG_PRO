@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useKasir } from './hooks/useKasir';
 import PencarianProduk from './components/PencarianProduk';
 import DaftarProdukKasir from './components/DaftarProdukKasir';
 import KeranjangKasir from './components/KeranjangKasir';
 import Pembayaran from './components/Pembayaran';
 import Nota from './components/Nota';
+import useKeyboardShortcuts from '../../hooks/useKeyboardShortcuts';
 
 export default function KasirPage() {
   const {
@@ -30,10 +31,19 @@ export default function KasirPage() {
     tahanTransaksi,
     panggilDraf,
     hapusDraf,
+    produkKeranjangBerubah,
   } = useKasir();
 
   const [kataKunci, setKataKunci] = useState('');
   const [tampilModalPembayaran, setTampilModalPembayaran] = useState(false);
+  const [tampilModalDraf, setTampilModalDraf] = useState(false);
+  const searchInputRef = useRef(null);
+
+  const bukaPembayaran = () => {
+    if (!transaksiSelesai && !tampilModalDraf && keranjang.length > 0) {
+      setTampilModalPembayaran(true);
+    }
+  };
 
   // Penanganan scanner barcode
   const handleScanBarcode = (kode) => {
@@ -64,6 +74,55 @@ export default function KasirPage() {
     }
   };
 
+  useKeyboardShortcuts({
+    onFocusSearch: () => {
+      if (!transaksiSelesai && !tampilModalPembayaran && !tampilModalDraf) {
+        searchInputRef.current?.focus();
+      }
+    },
+    isPaymentOpen: () => tampilModalPembayaran,
+    onCheckout: () => {
+      if (tampilModalPembayaran) {
+        handleProsesPembayaran();
+      } else {
+        bukaPembayaran();
+      }
+    },
+    onConfirmPayment: () => {
+      if (!tampilModalPembayaran) return false;
+      handleProsesPembayaran();
+      return true;
+    },
+    onClearCart: () => {
+      if (
+        transaksiSelesai ||
+        tampilModalPembayaran ||
+        tampilModalDraf ||
+        keranjang.length === 0
+      ) {
+        return;
+      }
+      if (window.confirm('Yakin ingin mengosongkan seluruh keranjang belanja?')) {
+        resetKeranjang();
+      }
+    },
+    onEscape: () => {
+      if (transaksiSelesai) {
+        resetTransaksiSelesai();
+        return true;
+      }
+      if (tampilModalPembayaran) {
+        setTampilModalPembayaran(false);
+        return true;
+      }
+      if (tampilModalDraf) {
+        setTampilModalDraf(false);
+        return true;
+      }
+      return false;
+    }
+  });
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto min-h-screen pb-24 md:pb-6">
       
@@ -88,6 +147,7 @@ export default function KasirPage() {
             kataKunci={kataKunci}
             onUbahKataKunci={setKataKunci}
             onScanBarcode={handleScanBarcode}
+            searchInputRef={searchInputRef}
           />
 
           <DaftarProdukKasir
@@ -104,13 +164,17 @@ export default function KasirPage() {
             totalQtyItems={totalQtyItems}
             totalBayar={totalBayar}
             daftarDraf={daftarDraf}
+            tampilModalDraf={tampilModalDraf}
+            produkBerubah={produkKeranjangBerubah}
             onTahanTransaksi={tahanTransaksi}
             onPanggilDraf={panggilDraf}
             onHapusDraf={hapusDraf}
+            onBukaModalDraf={() => setTampilModalDraf(true)}
+            onTutupModalDraf={() => setTampilModalDraf(false)}
             onUbahQty={ubahQtyItem}
             onHapusItem={hapusItemKeranjang}
             onResetKeranjang={resetKeranjang}
-            onLanjutPembayaran={() => setTampilModalPembayaran(true)}
+            onLanjutPembayaran={bukaPembayaran}
           />
         </div>
 

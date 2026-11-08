@@ -1,4 +1,5 @@
 import React from 'react';
+import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
 
 export default function Nota({ transaksi, onTutupNota }) {
   if (!transaksi) return null;
@@ -64,8 +65,8 @@ export default function Nota({ transaksi, onTutupNota }) {
                 <div key={idx} className="space-y-0.5">
                   <div className="font-semibold">{item.namaProduk}</div>
                   <div className="flex justify-between text-gray-600 text-[11px]">
-                    <span>{item.qty} {item.namaSatuan} x Rp{item.hargaJualSatuan.toLocaleString('id-ID')}</span>
-                    <span className="font-bold text-gray-800">Rp{item.subtotal.toLocaleString('id-ID')}</span>
+                    <span>{formatQuantity(item.qty)} {item.namaSatuan} x Rp{item.hargaJualSatuan.toLocaleString('id-ID')}</span>
+                    <span className="font-bold text-gray-800">Rp{calculateSubtotal(item.hargaJualSatuan, item.qty).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
               ))}
@@ -75,7 +76,7 @@ export default function Nota({ transaksi, onTutupNota }) {
             <div className="space-y-1 pb-3 border-b border-dashed border-gray-300 text-[11px]">
               <div className="flex justify-between">
                 <span>Total Item:</span>
-                <span className="font-bold">{transaksi.totalQtyItems} Pcs</span>
+                <span className="font-bold">{formatQuantity(transaksi.totalQtyItems)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold pt-1">
                 <span>TOTAL BAYAR:</span>

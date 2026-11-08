@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatQuantity } from '../../../utils/formatQuantity';
 
 export default function DaftarProdukBelanja({
   daftarProduk,
@@ -32,10 +33,10 @@ export default function DaftarProdukBelanja({
         const apakahSedikit = stok <= 10;
 
         const listSatuan = produk.listSatuan || [];
-        const satuanBase = listSatuan.find((s) => s.isBase) || listSatuan[0] || {};
+        const satuanDefault = listSatuan[0] || {};
 
-        const idSatuanAktif = satuanTerpilih[produk.idProduk] || satuanBase.idSatuan;
-        const satuanAktif = listSatuan.find((s) => s.idSatuan === idSatuanAktif) || satuanBase;
+        const idSatuanAktif = satuanTerpilih[produk.idProduk] || satuanDefault.idSatuan;
+        const satuanAktif = listSatuan.find((s) => s.idSatuan === idSatuanAktif) || satuanDefault;
 
         const handlePilihSatuan = (idSatuan) => {
           setSatuanTerpilih((prev) => ({ ...prev, [produk.idProduk]: idSatuan }));
@@ -54,11 +55,11 @@ export default function DaftarProdukBelanja({
                 </h3>
                 {apakahSedikit ? (
                   <span className="shrink-0 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 bg-amber-100 rounded-md">
-                    Stok Sisa {stok}
+                    Stok Sisa {formatQuantity(stok)}
                   </span>
                 ) : (
                   <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold text-gray-600 bg-gray-100 rounded-md">
-                    Stok {stok}
+                    Stok {formatQuantity(stok)}
                   </span>
                 )}
               </div>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { buatIdProduk } from '../utils/produkUtils';
+import { beriTahuProdukDiperbarui, buatIdProduk } from '../utils/produkUtils';
 
 const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
 
@@ -145,6 +145,7 @@ export function useProduk() {
   useEffect(() => {
     try {
       localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukAsli));
+      beriTahuProdukDiperbarui();
     } catch (error) {
       console.error("Gagal menyimpan data ke localStorage:", error);
     }
