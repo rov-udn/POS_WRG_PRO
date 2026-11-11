@@ -9,11 +9,8 @@ import {
   signInWithEmailAndPassword
 } from 'firebase/auth';
 import {
-  collection,
   doc,
-  getDocs,
-  limit,
-  query,
+  getDoc,
   setDoc
 } from 'firebase/firestore';
 import { auth, db } from '../../constants/firebaseConfig';
@@ -32,6 +29,9 @@ const PESAN_ERROR_AUTENTIKASI = {
   'permission-denied': 'Tidak dapat menyimpan profil akun. Periksa izin Firestore.',
   'unavailable': 'Layanan sedang tidak tersedia. Periksa koneksi lalu coba lagi.'
 };
+
+// Email utama awal untuk penetapan Super Admin otomatis
+const EMAIL_SUPER_ADMIN_AWAL = 'rofiuddin220@gmail.com';
 
 export default function LoginPage({ onLoginBerhasil }) {
   const [mode, setMode] = useState('login');
@@ -92,29 +92,43 @@ export default function LoginPage({ onLoginBerhasil }) {
       let hasilLogin;
 
       if (mode === 'daftar') {
-        const penggunaTersimpan = await getDocs(
-          query(collection(db, 'users'), limit(1))
-        );
-
-        if (!penggunaTersimpan.empty) {
-          setPesanError(
-            'Admin pertama sudah terdaftar. Hubungi admin toko untuk membuat akun karyawan.'
-          );
-          return;
-        }
-
         hasilLogin = await createUserWithEmailAndPassword(auth, email, kataSandi);
         penggunaBaru = hasilLogin.user;
+
+        const emailTersimpan = penggunaBaru.email?.toLowerCase().trim();
+        const adalahSuperAdmin = emailTersimpan === EMAIL_SUPER_ADMIN_AWAL.toLowerCase();
+
         await setDoc(doc(db, 'users', penggunaBaru.uid), {
           uid: penggunaBaru.uid,
           email: penggunaBaru.email,
           nama: nama.trim(),
-          role: 'admin',
-          store_id: penggunaBaru.uid
+          role: adalahSuperAdmin ? 'super_admin' : 'admin',
+          store_id: penggunaBaru.uid,
+          status: adalahSuperAdmin ? 'active' : 'pending'
         });
         profilTersimpan = true;
+
+        if (!adalahSuperAdmin) {
+          await signOut(auth);
+          setPesanError('Akun Anda masih menunggu persetujuan dari Super Admin.');
+          return;
+        }
       } else {
         hasilLogin = await signInWithEmailAndPassword(auth, email, kataSandi);
+
+        // Pengecekan status akun di Firestore
+        const userDocRef = doc(db, 'users', hasilLogin.user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.status === 'pending') {
+            await signOut(auth);
+            setPesanError('Akun Anda masih menunggu persetujuan dari Super Admin.');
+            setSedangMemuat(false);
+            return;
+          }
+        }
       }
 
       onLoginBerhasil?.(hasilLogin.user);
@@ -146,7 +160,7 @@ export default function LoginPage({ onLoginBerhasil }) {
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900">POS Warung</h1>
           <p className="mt-2 text-sm text-gray-600">
-            {mode === 'daftar' ? 'Buat akun baru' : 'Masuk ke akun Anda'}
+            {mode === 'daftar' ? 'Buat akun admin baru' : 'Masuk ke akun Anda'}
           </p>
         </div>
 
@@ -154,7 +168,7 @@ export default function LoginPage({ onLoginBerhasil }) {
           {mode === 'daftar' && (
             <div className="space-y-2">
               <label htmlFor="nama" className="block text-sm font-medium text-gray-700">
-                Nama Lengkap
+                Nama Lengkap / Nama Warung
               </label>
               <input
                 id="nama"
@@ -164,7 +178,7 @@ export default function LoginPage({ onLoginBerhasil }) {
                 required
                 value={nama}
                 onChange={(event) => setNama(event.target.value)}
-                placeholder="Masukkan nama lengkap"
+                placeholder="Masukkan nama lengkap atau toko"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
@@ -236,7 +250,7 @@ export default function LoginPage({ onLoginBerhasil }) {
           >
             {sedangMemuat
               ? (mode === 'daftar' ? 'Sedang mendaftar...' : 'Sedang masuk...')
-              : (mode === 'daftar' ? 'Daftar Akun' : 'Masuk')}
+              : (mode === 'daftar' ? 'Daftar Sebagai Admin' : 'Masuk')}
           </button>
 
           {mode === 'login' && (

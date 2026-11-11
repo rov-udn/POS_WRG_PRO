@@ -14,6 +14,7 @@ import useUserProfile from '../features/setting/hooks/useUserProfile';
 
 const MENU_ADMIN = ['produk', 'gudang', 'kasir', 'belanja', 'history', 'laporan', 'setting'];
 const MENU_KARYAWAN = ['kasir', 'gudang', 'history', 'setting'];
+const MENU_SUPER_ADMIN = ['setting'];
 
 export default function App() {
   const [menuAktif, setMenuAktif] = useState('produk');
@@ -32,7 +33,9 @@ export default function App() {
     }
   };
 
-  const daftarMenuDiizinkan = role === 'admin'
+  const daftarMenuDiizinkan = role === 'super_admin'
+    ? MENU_SUPER_ADMIN
+    : role === 'admin'
     ? MENU_ADMIN
     : role === 'karyawan'
       ? MENU_KARYAWAN

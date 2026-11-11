@@ -27,6 +27,20 @@ const pastikanAdminToko = async (storeId) => {
   return penggunaAktif.uid;
 };
 
+const pastikanSuperAdmin = async () => {
+  const penggunaAktif = auth.currentUser;
+  if (!penggunaAktif) {
+    throw new Error('Sesi Super Admin tidak tersedia. Silakan masuk kembali.');
+  }
+
+  const snapshotAdmin = await getDocFromServer(doc(db, 'users', penggunaAktif.uid));
+  if (!snapshotAdmin.exists() || snapshotAdmin.data().role !== 'super_admin') {
+    throw new Error('Hanya Super Admin yang dapat memproses pendaftaran akun.');
+  }
+
+  return penggunaAktif.uid;
+};
+
 const pastikanAkunToko = async (akunUid, storeId, uidAdmin) => {
   if (!akunUid || akunUid === storeId || akunUid === uidAdmin) {
     throw new Error('Akun admin utama tidak dapat dikelola dari daftar ini.');
@@ -38,12 +52,16 @@ const pastikanAkunToko = async (akunUid, storeId, uidAdmin) => {
   }
 };
 
-export default function useManajemenKaryawan(storeId) {
+export default function useManajemenKaryawan(storeId, roleAktif) {
   const [daftarAkun, setDaftarAkun] = useState([]);
+  const [daftarPendaftaranPending, setDaftarPendaftaranPending] = useState([]);
   const [sedangMemuat, setSedangMemuat] = useState(true);
+  const [sedangMemuatPendaftaran, setSedangMemuatPendaftaran] = useState(true);
   const [akunDiproses, setAkunDiproses] = useState('');
   const [pesanError, setPesanError] = useState('');
   const [pesanSukses, setPesanSukses] = useState('');
+  const [pesanErrorPendaftaran, setPesanErrorPendaftaran] = useState('');
+  const [pesanSuksesPendaftaran, setPesanSuksesPendaftaran] = useState('');
 
   const muatAkun = useCallback(async ({ clearError = false } = {}) => {
     if (clearError) setPesanError('');
@@ -69,11 +87,40 @@ export default function useManajemenKaryawan(storeId) {
     }
   }, [storeId]);
 
+  const muatPendaftaranPending = useCallback(async () => {
+    setPesanErrorPendaftaran('');
+    try {
+      await pastikanSuperAdmin();
+      const hasil = await getDocsFromServer(
+        query(collection(db, 'users'), where('status', '==', 'pending'))
+      );
+      setDaftarPendaftaranPending(
+        hasil.docs.map((dokumen) => ({
+          uid: dokumen.id,
+          ...dokumen.data()
+        }))
+      );
+    } catch (error) {
+      console.error('Gagal memuat pendaftaran yang menunggu persetujuan:', error);
+      setPesanErrorPendaftaran(
+        error.message || 'Daftar pendaftaran gagal dimuat. Silakan coba lagi.'
+      );
+    } finally {
+      setSedangMemuatPendaftaran(false);
+    }
+  }, []);
+
   useEffect(() => {
+    if (roleAktif === 'super_admin') {
+      // Start the server-backed pending-account fetch.
+      // eslint-disable-next-line react/set-state-in-effect
+      muatPendaftaranPending();
+      return;
+    }
     // This effect starts the initial asynchronous Firestore account fetch.
     // eslint-disable-next-line react/set-state-in-effect
     muatAkun();
-  }, [muatAkun]);
+  }, [muatAkun, muatPendaftaranPending, roleAktif]);
 
   const ubahRole = async (akun, roleBaru) => {
     if (!['admin', 'karyawan'].includes(roleBaru) || roleBaru === akun.role) return;
@@ -119,14 +166,83 @@ export default function useManajemenKaryawan(storeId) {
     }
   };
 
+  const setujuiPendaftaran = async (akun) => {
+    setAkunDiproses(akun.uid);
+    setPesanErrorPendaftaran('');
+    setPesanSuksesPendaftaran('');
+    try {
+      const uidSuperAdmin = await pastikanSuperAdmin();
+      if (!akun.uid || akun.uid === uidSuperAdmin) {
+        throw new Error('Akun Super Admin tidak dapat diproses sebagai pendaftaran.');
+      }
+
+      const referensiAkun = doc(db, 'users', akun.uid);
+      const snapshotAkun = await getDocFromServer(referensiAkun);
+      if (!snapshotAkun.exists() || snapshotAkun.data().status !== 'pending') {
+        throw new Error('Pendaftaran sudah tidak menunggu persetujuan. Muat ulang daftar.');
+      }
+
+      await updateDoc(referensiAkun, { status: 'active' });
+      setDaftarPendaftaranPending((sebelumnya) => (
+        sebelumnya.filter((item) => item.uid !== akun.uid)
+      ));
+      setPesanSuksesPendaftaran(
+        `Pendaftaran ${akun.nama || akun.email || 'akun'} berhasil disetujui.`
+      );
+    } catch (error) {
+      console.error('Gagal menyetujui pendaftaran akun:', error);
+      setPesanErrorPendaftaran(error.message || 'Pendaftaran gagal disetujui. Silakan coba lagi.');
+    } finally {
+      setAkunDiproses('');
+    }
+  };
+
+  const hapusPendaftaranPending = async (akun) => {
+    setAkunDiproses(akun.uid);
+    setPesanErrorPendaftaran('');
+    setPesanSuksesPendaftaran('');
+    try {
+      const uidSuperAdmin = await pastikanSuperAdmin();
+      if (!akun.uid || akun.uid === uidSuperAdmin) {
+        throw new Error('Akun Super Admin tidak dapat dihapus dari daftar pendaftaran.');
+      }
+
+      const referensiAkun = doc(db, 'users', akun.uid);
+      const snapshotAkun = await getDocFromServer(referensiAkun);
+      if (!snapshotAkun.exists() || snapshotAkun.data().status !== 'pending') {
+        throw new Error('Akun tidak lagi berstatus pending. Muat ulang daftar.');
+      }
+
+      await deleteDoc(referensiAkun);
+      setDaftarPendaftaranPending((sebelumnya) => (
+        sebelumnya.filter((item) => item.uid !== akun.uid)
+      ));
+      setPesanSuksesPendaftaran(
+        `Profil pendaftaran ${akun.nama || akun.email || 'akun'} telah dihapus.`
+      );
+    } catch (error) {
+      console.error('Gagal menghapus pendaftaran akun:', error);
+      setPesanErrorPendaftaran(error.message || 'Pendaftaran gagal dihapus. Silakan coba lagi.');
+    } finally {
+      setAkunDiproses('');
+    }
+  };
+
   return {
     daftarAkun,
+    daftarPendaftaranPending,
     sedangMemuat,
+    sedangMemuatPendaftaran,
     akunDiproses,
     pesanError,
     pesanSukses,
+    pesanErrorPendaftaran,
+    pesanSuksesPendaftaran,
     muatAkun,
+    muatPendaftaranPending,
     ubahRole,
-    hapusAkses
+    hapusAkses,
+    setujuiPendaftaran,
+    hapusPendaftaranPending
   };
 }

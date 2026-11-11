@@ -5,7 +5,6 @@ import ProdukTerlaris from './components/ProdukTerlaris';
 import { ambilShiftTertutup, KUNCI_STORAGE_SHIFT } from './utils/shiftStorage';
 
 const KUNCI_STORAGE_TRANSAKSI = 'pos_warung_transactions';
-const KUNCI_STORAGE_SHRINKAGE = 'pos_warung_shrinkage_logs';
 
 export default function LaporanPage({ role }) {
   const [daftarTransaksi] = useState(() => {
@@ -14,17 +13,6 @@ export default function LaporanPage({ role }) {
       return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('Gagal memuat data transaksi untuk laporan:', error);
-      return [];
-    }
-  });
-  const [daftarKerugian, setDaftarKerugian] = useState(() => {
-    try {
-      const data = localStorage.getItem(KUNCI_STORAGE_SHRINKAGE);
-      const hasil = data ? JSON.parse(data) : [];
-      if (!Array.isArray(hasil)) throw new Error('Format log kerugian tidak valid.');
-      return hasil;
-    } catch (error) {
-      console.error('Gagal memuat log kerugian untuk laporan:', error);
       return [];
     }
   });
@@ -61,26 +49,6 @@ export default function LaporanPage({ role }) {
     return () => window.removeEventListener('storage', muatShiftTertutup);
   }, [role]);
 
-  useEffect(() => {
-    const muatKerugian = (event) => {
-      if (event?.key && event.key !== KUNCI_STORAGE_SHRINKAGE) return;
-      try {
-        const data = localStorage.getItem(KUNCI_STORAGE_SHRINKAGE);
-        const hasil = data ? JSON.parse(data) : [];
-        if (!Array.isArray(hasil)) throw new Error('Format log kerugian tidak valid.');
-        setDaftarKerugian(hasil);
-      } catch (error) {
-        console.error('Gagal memuat log kerugian untuk laporan:', error);
-      }
-    };
-    window.addEventListener('storage', muatKerugian);
-    window.addEventListener('pos-warung-shrinkage-updated', muatKerugian);
-    return () => {
-      window.removeEventListener('storage', muatKerugian);
-      window.removeEventListener('pos-warung-shrinkage-updated', muatKerugian);
-    };
-  }, []);
-
   // Filter transaksi berdasarkan periode pilihan
   const transaksiTersaring = daftarTransaksi.filter((trx) => {
     const tglTrx = new Date(trx.tanggal);
@@ -116,22 +84,6 @@ export default function LaporanPage({ role }) {
     }
     return true;
   });
-  const kerugianTersaring = daftarKerugian.filter((log) => {
-    const tanggal = new Date(log.tanggal);
-    if (Number.isNaN(tanggal.getTime())) return false;
-    const sekarang = new Date();
-    if (periode === 'HARI_INI') return tanggal.toDateString() === sekarang.toDateString();
-    if (periode === 'BULAN_INI') {
-      return tanggal.getMonth() === sekarang.getMonth() &&
-        tanggal.getFullYear() === sekarang.getFullYear();
-    }
-    return true;
-  });
-  const totalBebanKerugian = kerugianTersaring.reduce(
-    (total, log) => total + (Number(log.totalKerugian) || 0),
-    0
-  );
-
   if (role !== 'admin') {
     return (
       <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -142,7 +94,6 @@ export default function LaporanPage({ role }) {
 
   // --- Perhitungan Kalkulasi Otomatis ---
   let totalOmzet = 0;
-  let totalModal = 0;
   let totalTunaiMasuk = 0;
   let totalKasKeluar = 0;
   let totalNonTunai = 0;
@@ -162,41 +113,29 @@ export default function LaporanPage({ role }) {
       totalNonTunai += trx.totalBayar || 0;
     }
 
-    // Rekap Barang Terjual & Margin
+    // Rekap barang terjual dan pendapatan.
     if (trx.items && Array.isArray(trx.items)) {
       trx.items.forEach((item) => {
         const idProduk = item.idProduk || item.namaProduk;
-        const modalSatuan = item.hargaBeliSatuan || 0; // Jika ada simpanan modal di data transaksi
         const tanda = item.arah === 'MASUK' ? -1 : 1;
         const qtyBertanda = (item.qty || 0) * tanda;
-        const subtotalModal = qtyBertanda * modalSatuan;
-
-        totalModal += subtotalModal;
 
         if (!petaProduk[idProduk]) {
           petaProduk[idProduk] = {
             namaProduk: item.namaProduk,
             totalQty: 0,
-            totalOmzet: 0,
-            totalModal: 0
+            totalOmzet: 0
           };
         }
 
         petaProduk[idProduk].totalQty += qtyBertanda;
         petaProduk[idProduk].totalOmzet += (item.subtotal || 0) * tanda;
-        petaProduk[idProduk].totalModal += subtotalModal;
       });
     }
   });
 
-  const totalLabaBersih = totalOmzet - totalModal - totalBebanKerugian;
-
-  // Mengubah Peta Produk menjadi Array & Mengurutkan Berdasarkan Terlaris
+  // Mengurutkan produk berdasarkan jumlah terjual.
   const daftarProdukTerlaris = Object.values(petaProduk)
-    .map((p) => ({
-      ...p,
-      estimasiLaba: p.totalOmzet - p.totalModal
-    }))
     .sort((a, b) => b.totalQty - a.totalQty);
 
   return (
@@ -206,7 +145,7 @@ export default function LaporanPage({ role }) {
         <div>
           <h2 className="text-xl font-bold text-gray-800">Laporan Keuangan & Penjualan</h2>
           <p className="text-xs text-gray-500">
-            Analisis arus kas, pemisahan modal vs untung bersih, dan performa barang terlaris.
+            Ringkasan pendapatan, arus kas, dan performa barang terlaris.
           </p>
         </div>
 
@@ -245,13 +184,8 @@ export default function LaporanPage({ role }) {
         </div>
       </div>
 
-      {/* 1. Kartu Ringkasan Statistik Utama */}
-      <RingkasanStatistik
-        omzetKotor={totalOmzet}
-        totalModal={totalModal}
-        bebanKerugian={totalBebanKerugian}
-        labaBersih={totalLabaBersih}
-      />
+      {/* Ringkasan pendapatan transaksi. */}
+      <RingkasanStatistik omzetKotor={totalOmzet} />
 
       {/* 2. Grid Dua Kolom: Rekap Arus Kas & Produk Terlaris */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -268,51 +202,6 @@ export default function LaporanPage({ role }) {
           <ProdukTerlaris produkList={daftarProdukTerlaris} />
         </div>
       </div>
-
-      <section className="space-y-3 rounded-xl border border-red-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-bold text-red-800">Beban Kerugian / Barang Rusak</h3>
-            <p className="text-xs text-gray-500">Nilai modal dari koreksi barang eceran pada periode terpilih.</p>
-          </div>
-          <span className="text-sm font-bold text-red-700">{formatRupiah(totalBebanKerugian)}</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-[700px] w-full text-left text-xs">
-            <thead className="border-b bg-red-50 text-gray-600">
-              <tr>
-                <th className="px-3 py-2">Tanggal</th>
-                <th className="px-3 py-2">Produk</th>
-                <th className="px-3 py-2">Alasan</th>
-                <th className="px-3 py-2 text-right">Qty Rusak</th>
-                <th className="px-3 py-2 text-right">Beban Kerugian</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {kerugianTersaring.map((log) => (
-                <tr key={log.id}>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {new Date(log.tanggal).toLocaleString('id-ID')}
-                  </td>
-                  <td className="px-3 py-2">{log.namaProdukGrosir || log.namaProduk}</td>
-                  <td className="px-3 py-2">{log.alasan}</td>
-                  <td className="px-3 py-2 text-right">{log.qtyPcs} pcs</td>
-                  <td className="px-3 py-2 text-right font-semibold text-red-700">
-                    {formatRupiah(log.totalKerugian)}
-                  </td>
-                </tr>
-              ))}
-              {kerugianTersaring.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="px-3 py-6 text-center text-gray-500">
-                    Belum ada catatan kerugian pada periode ini.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div>

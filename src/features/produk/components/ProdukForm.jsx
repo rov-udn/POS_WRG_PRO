@@ -12,12 +12,9 @@ import {
   normalisasiVarianProduk
 } from '../utils/produkUtils';
 import { cekPotensiRugiSatuan } from '../utils/cekRugi';
-import { useAppMode } from '../../../hooks/useAppMode';
 import { Alert } from '../../../components/ui/Alert';
-import { roundPreciseQuantity } from '../../../utils/formatQuantity';
 
 export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
-  const { fitur } = useAppMode();
   const [namaProduk, setNamaProduk] = useState(dataAwal?.namaProduk || '');
   const [kategori, setKategori] = useState(dataAwal?.kategori || MASTER_KATEGORI_AWAL[0].label);
   const [punyaVarian, setPunyaVarian] = useState(dataAwal?.punyaVarian === true);
@@ -57,20 +54,16 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
     ]);
   });
 
+  const [idSatuanAcuanModal, setIdSatuanAcuanModal] = useState(() => {
+    const satuanDasar = listSatuan.find((satuan) => satuan.isBase);
+    return satuanDasar?.idSatuan || listSatuan[0]?.idSatuan || '';
+  });
+
   const [idSatuanDasarAwal] = useState(() => {
     const listAwal = dataAwal?.listSatuan || [];
     return listAwal.find((satuan) => satuan.isBase)?.idSatuan ||
       listAwal[listAwal.length - 1]?.idSatuan ||
       null;
-  });
-
-  const [satuanPilihanStokId, setSatuanPilihanStokId] = useState(() => {
-    return listSatuan.find((satuan) => satuan.isBase)?.idSatuan || listSatuan[0]?.idSatuan || '';
-  });
-
-  const [inputKuantitasStok, setInputKuantitasStok] = useState(() => {
-    if (!fitur.ubahStok || !dataAwal) return 0;
-    return roundPreciseQuantity(Number(dataAwal.stokUtama) || 0);
   });
 
   // State Modal Tambah Satuan / Kategori Cepat
@@ -90,15 +83,22 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
   }, [masterKategori]);
 
   const satuanDasarAktif = listSatuan.find((satuan) => satuan.isBase) || listSatuan[0];
+  const namaSatuanDasar = satuanDasarAktif?.namaSatuan || 'Pcs';
+  const satuanAcuanModal = listSatuan.find(
+    (satuan) => satuan.idSatuan === idSatuanAcuanModal
+  ) || satuanDasarAktif;
+  const rasioAcuanModal = Number(satuanAcuanModal?.rasio) > 0
+    ? Number(satuanAcuanModal.rasio)
+    : 1;
   const listSatuanDenganHarga = listSatuan.map((satuan) => ({
     ...satuan,
     rasio: satuan.isBase ? 1 : satuan.rasio === '' ? '' : Number(satuan.rasio) || 1,
-    hargaBeli: satuan.isBase
-      ? Number(satuan.hargaBeli) || 0
+    hargaBeli: satuan.idSatuan === satuanAcuanModal?.idSatuan
+      ? Number(satuanAcuanModal?.hargaBeli) || 0
       : hitungHargaBeliSatuan(
-          satuanDasarAktif?.hargaBeli,
-          satuanDasarAktif?.rasio || 1,
-          satuan.rasio
+          satuanAcuanModal?.hargaBeli,
+          rasioAcuanModal,
+          Number(satuan.rasio) > 0 ? Number(satuan.rasio) : 1
         )
   }));
 
@@ -145,9 +145,6 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
 
   const pilihSatuanDasar = (idSatuan) => {
     if (idSatuan === satuanDasarAktif?.idSatuan) return;
-    const hargaBeliAcuan = listSatuan.find(
-      (satuan) => satuan.idSatuan === idSatuan
-    )?.hargaBeli;
 
     setListSatuan(
       normalisasiRasioSatuan(listSatuan, idSatuan).map((satuan) => {
@@ -156,7 +153,6 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
         )?.rasio;
         return {
           ...satuan,
-          ...(satuan.idSatuan === idSatuan && { hargaBeli: hargaBeliAcuan }),
           ...(!satuan.isBase && rasioSebelumnya === '' && { rasio: '' })
         };
       })
@@ -165,12 +161,16 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
 
   const hapusSatuan = (index) => {
     if (listSatuan[index].isBase || listSatuan.length === 1) return;
+    const satuanDihapus = listSatuan[index];
     if (
       Number(dataAwal?.stokUtama) > 0 &&
-      listSatuan[index].idSatuan === idSatuanDasarAwal
+      satuanDihapus.idSatuan === idSatuanDasarAwal
     ) {
       alert('Satuan dasar lama tidak dapat dihapus saat stok produk masih tersedia.');
       return;
+    }
+    if (satuanDihapus.idSatuan === idSatuanAcuanModal) {
+      setIdSatuanAcuanModal(satuanDasarAktif?.idSatuan || '');
     }
     setListSatuan((prev) => prev.filter((_, i) => i !== index));
   };
@@ -207,12 +207,6 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
     setModalTambahKategoriAktif(false);
   };
 
-  const satuanStokTerpilih = listSatuan.find((s) => s.idSatuan === satuanPilihanStokId) || listSatuan[0];
-  const rasioStokTerpilih = satuanStokTerpilih?.rasio || 1;
-
-  const totalStokUtamaHitung = fitur.ubahStok
-    ? hitungStokUtama(inputKuantitasStok, rasioStokTerpilih)
-    : Number(dataAwal?.stokUtama) || 0;
   const rasioSatuanDasarAwalSaatIni =
     listSatuan.find((satuan) => satuan.idSatuan === idSatuanDasarAwal)?.rasio || 1;
   const stokAwalTerkonversi = hitungStokUtama(
@@ -222,17 +216,13 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const namaSatuanDasar = satuanDasarAktif?.namaSatuan || 'Pcs';
-
     const dataForm = {
       ...(dataAwal?.idProduk && { idProduk: dataAwal.idProduk }),
       namaProduk,
       kategori,
       punyaVarian,
       varian: punyaVarian ? normalisasiVarianProduk(inputVarian) : [],
-      stokUtama: fitur.ubahStok
-        ? totalStokUtamaHitung
-        : stokAwalTerkonversi,
+      stokUtama: dataAwal ? stokAwalTerkonversi : 20,
       satuanTerkecil: namaSatuanDasar,
       listSatuan: normalisasiRasioSatuan(
         listSatuanDenganHarga,
@@ -250,8 +240,6 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
     };
     onSubmit(dataForm);
   };
-
-  const namaSatuanDasar = satuanDasarAktif?.namaSatuan || 'Pcs';
 
   return (
     <BaseModal
@@ -390,6 +378,16 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
                       />
                       Jadikan satuan dasar
                     </label>
+                    <label className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="acuan-harga-modal"
+                        checked={satuan.idSatuan === idSatuanAcuanModal}
+                        onChange={() => setIdSatuanAcuanModal(satuan.idSatuan)}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      Jadikan acuan harga modal
+                    </label>
                     {!isBaseItem && listSatuan.length > 1 && (
                       <button
                         type="button"
@@ -447,7 +445,7 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
                     placeholder="0"
                     value={satuan.hargaBeli}
                     onChange={(e) => ubahSatuan(index, 'hargaBeli', Math.max(0, Number(e.target.value)))}
-                    disabled={!isBaseItem}
+                    disabled={satuan.idSatuan !== idSatuanAcuanModal}
                   />
                   <Input
                     label={`Harga Jual per ${satuan.namaSatuan}`}
@@ -479,50 +477,6 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
             );
           })}
         </div>
-
-        {fitur.lihatStok && (
-        <div className="border-t pt-4 space-y-2 bg-gray-50 p-3.5 rounded-lg border border-gray-200">
-          <label className="block text-sm font-bold text-gray-800">
-            Input Stok Awal
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Input
-              label="Jumlah Kuantitas Fisik"
-              type="number"
-              min="0"
-              step="0.001"
-              placeholder="Contoh: 10"
-              value={inputKuantitasStok}
-              onChange={(e) => setInputKuantitasStok(e.target.value)}
-              required
-            />
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Dalam Satuan Apa?
-              </label>
-              <select
-                value={satuanPilihanStokId}
-                onChange={(e) => setSatuanPilihanStokId(e.target.value)}
-                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              >
-                {listSatuan.map((s) => (
-                  <option key={s.idSatuan} value={s.idSatuan}>
-                    {s.namaSatuan} (Rasio: {s.rasio})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-2 text-xs font-semibold text-blue-700 bg-blue-100/70 px-3 py-2 rounded-md flex justify-between items-center">
-            <span>Kalkulasi Otomatis Stok Utama:</span>
-            <span className="text-sm font-bold">
-              {inputKuantitasStok || 0} {satuanStokTerpilih?.namaSatuan} × {rasioStokTerpilih} = {totalStokUtamaHitung} {namaSatuanDasar}
-            </span>
-          </div>
-        </div>
-        )}
 
         <div className="flex gap-3 pt-4 border-t">
           <Button type="submit" variant="primary" className="flex-1">

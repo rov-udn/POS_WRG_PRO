@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAppMode } from '../../../hooks/useAppMode';
+import { ATURAN_MODE, KUNCI_STORAGE_MODE } from '../../../constants/configMode';
 import { calculateSubtotal, roundPreciseQuantity, roundQuantity } from '../../../utils/formatQuantity';
 import {
   apakahProdukBerubahDariSnapshot,
@@ -21,8 +21,16 @@ const KUNCI_STORAGE_DRAF = 'pos_warung_draf_transactions';
 const KUNCI_STORAGE_KERANJANG = 'pos_warung_keranjang_kasir';
 const KUNCI_STORAGE_PRODUK_LEGACY = 'pos_warung_products';
 
+const bacaAturanModeAktif = () => {
+  const modeAktif = localStorage.getItem(KUNCI_STORAGE_MODE) || 'simple';
+  const aturanMode = ATURAN_MODE[modeAktif];
+  if (!aturanMode) {
+    throw new Error(`Mode aplikasi "${modeAktif}" tidak dikenali.`);
+  }
+  return aturanMode;
+};
+
 export function useKasir({ idKasir, namaKasir } = {}) {
-  const { fitur } = useAppMode();
   const [daftarProduk, setDaftarProduk] = useState(() => {
     try {
       const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
@@ -450,12 +458,14 @@ export function useKasir({ idKasir, namaKasir } = {}) {
     }
 
     let produkOperasional;
+    let fiturAktif;
     try {
+      fiturAktif = bacaAturanModeAktif();
       produkOperasional = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');
       setDaftarProduk(produkOperasional);
     } catch (error) {
-      console.error('Gagal memuat data produk terbaru sebelum pembayaran:', error);
-      alert('❌ Data produk terbaru tidak dapat dibaca. Transaksi belum diproses.');
+      console.error('Gagal memuat mode atau data produk sebelum pembayaran:', error);
+      alert('❌ Mode aplikasi atau data produk tidak dapat dibaca. Transaksi belum diproses.');
       return false;
     }
 
@@ -467,7 +477,7 @@ export function useKasir({ idKasir, namaKasir } = {}) {
       ({ item, produk }) =>
         !item.snapshotProduk &&
         produk &&
-        (fitur.validasiStok || fitur.ubahStok)
+        (fiturAktif.validasiStok || fiturAktif.ubahStok)
     );
     if (itemTanpaSnapshot.length > 0) {
       alert(
@@ -482,7 +492,7 @@ export function useKasir({ idKasir, namaKasir } = {}) {
     if (
       itemUsang.length > 0 &&
       !window.confirm(
-        `Data master produk berikut berubah setelah masuk keranjang: ${itemUsang.map(({ item }) => item.namaProduk).join(', ')}. Harga dan satuan transaksi tetap memakai snapshot keranjang; stok akan dikonversi ke basis terbaru. Lanjutkan pembayaran?`
+        `Data master produk berikut berubah setelah masuk keranjang: ${itemUsang.map(({ item }) => item.namaProduk).join(', ')}. Harga dan satuan transaksi tetap memakai snapshot keranjang.${fiturAktif.ubahStok ? ' Stok akan dikonversi ke basis terbaru.' : ''} Lanjutkan pembayaran?`
       )
     ) {
       return false;
@@ -493,7 +503,7 @@ export function useKasir({ idKasir, namaKasir } = {}) {
       produk,
       rasioSaatIni: produk ? hitungRasioSatuanKeBasisSaatIni(item, produk) : null
     }));
-    if (fitur.validasiStok || fitur.ubahStok) {
+    if (fiturAktif.validasiStok || fiturAktif.ubahStok) {
       const itemTidakDapatDikonversi = itemDenganRasioSaatIni.find(
         ({ item, produk, rasioSaatIni }) =>
           !item.isUnpackItem && (!produk || rasioSaatIni === null)
@@ -511,7 +521,7 @@ export function useKasir({ idKasir, namaKasir } = {}) {
       return false;
     }
 
-    if (fitur.validasiStok) {
+    if (fiturAktif.validasiStok) {
       for (const { item, produk: produkTarget, rasioSaatIni } of itemDenganRasioSaatIni) {
         if (item.isUnpackItem) continue;
         const stokTersedia = Number(produkTarget?.stokUtama) || 0;
@@ -530,7 +540,7 @@ export function useKasir({ idKasir, namaKasir } = {}) {
 
     let daftarProdukBaru = [...produkOperasional];
 
-    if (fitur.ubahStok) {
+    if (fiturAktif.ubahStok) {
       itemDenganRasioSaatIni.forEach(({ item, rasioSaatIni }) => {
         if (item.isUnpackItem) return;
         const produkTarget = daftarProdukBaru.find((p) => p.idProduk === item.idProduk);
@@ -569,7 +579,7 @@ export function useKasir({ idKasir, namaKasir } = {}) {
       const riwayatLama = JSON.parse(localStorage.getItem(KUNCI_STORAGE_TRANSAKSI) || '[]');
       const riwayatBaru = [dataTransaksiBaru, ...riwayatLama];
       localStorage.setItem(KUNCI_STORAGE_TRANSAKSI, JSON.stringify(riwayatBaru));
-      if (fitur.ubahStok) {
+      if (fiturAktif.ubahStok) {
         simpanProdukKeStorage(daftarProdukBaru);
       }
       localStorage.removeItem(KUNCI_STORAGE_KERANJANG);
@@ -588,7 +598,9 @@ export function useKasir({ idKasir, namaKasir } = {}) {
   const prosesReturTukar = ({ barangKembali, barangPengganti, metodePembayaran, jumlahDiterima }) => {
     let produkOperasional;
     let riwayatLama;
+    let fiturAktif;
     try {
+      fiturAktif = bacaAturanModeAktif();
       produkOperasional = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');
       riwayatLama = JSON.parse(localStorage.getItem(KUNCI_STORAGE_TRANSAKSI) || '[]');
       if (!Array.isArray(produkOperasional) || !Array.isArray(riwayatLama)) {
@@ -638,24 +650,27 @@ export function useKasir({ idKasir, namaKasir } = {}) {
       return false;
     }
 
-    const perubahanStok = new Map();
-    [...itemsKembali, ...itemsPengganti].forEach((item) => {
-      const totalPcs = roundPreciseQuantity(item.qty * item.rasio) * (item.arah === 'MASUK' ? 1 : -1);
-      perubahanStok.set(item.idProduk, (perubahanStok.get(item.idProduk) || 0) + totalPcs);
-    });
-    const daftarProdukBaru = produkOperasional.map((produk) => {
-      if (!perubahanStok.has(produk.idProduk)) return produk;
-      const stokTerkini = Number(produk.stokUtama);
-      if (!Number.isFinite(stokTerkini)) return null;
-      const stokBaru = roundPreciseQuantity(
-        stokTerkini + perubahanStok.get(produk.idProduk)
-      );
-      if (stokBaru < 0) return null;
-      return { ...produk, stokUtama: stokBaru };
-    });
-    if (daftarProdukBaru.some((producto) => producto === null)) {
-      alert('❌ Stok tidak cukup untuk salah satu barang pengganti.');
-      return false;
+    let daftarProdukBaru = produkOperasional;
+    if (fiturAktif.ubahStok) {
+      const perubahanStok = new Map();
+      [...itemsKembali, ...itemsPengganti].forEach((item) => {
+        const totalPcs = roundPreciseQuantity(item.qty * item.rasio) * (item.arah === 'MASUK' ? 1 : -1);
+        perubahanStok.set(item.idProduk, (perubahanStok.get(item.idProduk) || 0) + totalPcs);
+      });
+      daftarProdukBaru = produkOperasional.map((produk) => {
+        if (!perubahanStok.has(produk.idProduk)) return produk;
+        const stokTerkini = Number(produk.stokUtama);
+        if (!Number.isFinite(stokTerkini)) return null;
+        const stokBaru = roundPreciseQuantity(
+          stokTerkini + perubahanStok.get(produk.idProduk)
+        );
+        if (stokBaru < 0) return null;
+        return { ...produk, stokUtama: stokBaru };
+      });
+      if (daftarProdukBaru.some((producto) => producto === null)) {
+        alert('❌ Stok tidak cukup untuk salah satu barang pengganti.');
+        return false;
+      }
     }
 
     const tglSekarang = new Date();
@@ -681,18 +696,24 @@ export function useKasir({ idKasir, namaKasir } = {}) {
         : 0
     };
 
-    const produkTersimpanSebelumnya = localStorage.getItem(KUNCI_STORAGE_PRODUK);
+    const produkTersimpanSebelumnya = fiturAktif.ubahStok
+      ? localStorage.getItem(KUNCI_STORAGE_PRODUK)
+      : null;
     const transaksiTersimpanSebelumnya = localStorage.getItem(KUNCI_STORAGE_TRANSAKSI);
     try {
-      localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukBaru));
+      if (fiturAktif.ubahStok) {
+        localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukBaru));
+      }
       localStorage.setItem(
         KUNCI_STORAGE_TRANSAKSI,
         JSON.stringify([transaksiRetur, ...riwayatLama])
       );
     } catch (error) {
       try {
-        if (produkTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_PRODUK);
-        else localStorage.setItem(KUNCI_STORAGE_PRODUK, produkTersimpanSebelumnya);
+        if (fiturAktif.ubahStok) {
+          if (produkTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_PRODUK);
+          else localStorage.setItem(KUNCI_STORAGE_PRODUK, produkTersimpanSebelumnya);
+        }
         if (transaksiTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_TRANSAKSI);
         else localStorage.setItem(KUNCI_STORAGE_TRANSAKSI, transaksiTersimpanSebelumnya);
       } catch (rollbackError) {
@@ -703,8 +724,10 @@ export function useKasir({ idKasir, namaKasir } = {}) {
       return false;
     }
 
-    setDaftarProduk(daftarProdukBaru);
-    beriTahuProdukDiperbarui();
+    if (fiturAktif.ubahStok) {
+      setDaftarProduk(daftarProdukBaru);
+      beriTahuProdukDiperbarui();
+    }
     return true;
   };
 

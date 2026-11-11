@@ -54,7 +54,8 @@ export default function useTambahKaryawan() {
         email: karyawanBaru.email,
         nama: nama.trim(),
         role: 'karyawan',
-        store_id: storeId
+        store_id: storeId,
+        status: 'active'
       });
       profilTersimpan = true;
     } catch (error) {

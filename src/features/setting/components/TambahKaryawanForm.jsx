@@ -15,7 +15,7 @@ const PESAN_ERROR_PENDAFTARAN = {
   'unavailable': 'Layanan sedang tidak tersedia. Periksa koneksi lalu coba lagi.'
 };
 
-export default function TambahKaryawanForm({ storeId }) {
+export default function TambahKaryawanForm({ storeId, role }) {
   const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
   const [kataSandi, setKataSandi] = useState('');
@@ -28,10 +28,16 @@ export default function TambahKaryawanForm({ storeId }) {
     akunDiproses,
     pesanError: pesanErrorDaftar,
     pesanSukses: pesanSuksesDaftar,
+    daftarPendaftaranPending,
+    sedangMemuatPendaftaran,
+    pesanErrorPendaftaran,
+    pesanSuksesPendaftaran,
     muatAkun,
     ubahRole,
-    hapusAkses
-  } = useManajemenKaryawan(storeId);
+    hapusAkses,
+    setujuiPendaftaran,
+    hapusPendaftaranPending
+  } = useManajemenKaryawan(storeId, role);
 
   const tanganiPendaftaran = async (event) => {
     event.preventDefault();
@@ -54,6 +60,86 @@ export default function TambahKaryawanForm({ storeId }) {
       );
     }
   };
+
+  if (role === 'super_admin') {
+    return (
+      <SectionCard title="Persetujuan pendaftaran akun">
+        <p className="text-sm text-gray-600">
+          Setujui akun agar dapat masuk ke aplikasi, atau hapus profil pendaftaran yang tidak dikenal.
+        </p>
+
+        {pesanErrorPendaftaran && (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {pesanErrorPendaftaran}
+          </p>
+        )}
+        {pesanSuksesPendaftaran && (
+          <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+            {pesanSuksesPendaftaran}
+          </p>
+        )}
+
+        {sedangMemuatPendaftaran ? (
+          <p role="status" className="text-sm text-gray-500">Memuat pendaftaran pending...</p>
+        ) : pesanErrorPendaftaran ? null : daftarPendaftaranPending.length === 0 ? (
+          <p className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+            Tidak ada pendaftaran yang menunggu persetujuan.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-left text-sm">
+              <thead className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                <tr>
+                  <th scope="col" className="px-3 py-2">Nama</th>
+                  <th scope="col" className="px-3 py-2">Email</th>
+                  <th scope="col" className="px-3 py-2">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {daftarPendaftaranPending.map((akun) => (
+                  <tr key={akun.uid}>
+                    <td className="px-3 py-3 font-medium text-gray-800">
+                      {akun.nama || '—'}
+                    </td>
+                    <td className="px-3 py-3 text-gray-600">{akun.email || '—'}</td>
+                    <td className="space-x-2 px-3 py-3">
+                      <button
+                        type="button"
+                        disabled={akunDiproses === akun.uid}
+                        onClick={() => setujuiPendaftaran(akun)}
+                        className="rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-60"
+                      >
+                        {akunDiproses === akun.uid ? 'Memproses...' : 'Setujui'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={akunDiproses === akun.uid}
+                        onClick={() => {
+                          const identitas = akun.nama || akun.email || 'akun ini';
+                          if (window.confirm(
+                            `Hapus profil pendaftaran ${identitas}? Kredensial Firebase Authentication tidak dihapus dari sini.`
+                          )) {
+                            hapusPendaftaranPending(akun);
+                          }
+                        }}
+                        className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Tolak / Hapus
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs leading-5 text-gray-500">
+          Tindakan hapus menghapus profil Firestore. Penghapusan kredensial Firebase Authentication
+          memerlukan backend tepercaya dan tidak dilakukan oleh aplikasi klien ini.
+        </p>
+      </SectionCard>
+    );
+  }
 
   return (
     <div className="space-y-5">
