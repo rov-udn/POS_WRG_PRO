@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
 
 export default function RiwayatKulakanTab({ daftarRiwayat = [] }) {
   const [filterPencarian, setFilterPencarian] = useState('');
@@ -88,10 +89,10 @@ export default function RiwayatKulakanTab({ daftarRiwayat = [] }) {
                         ) : (
                           <>
                             <span className="font-semibold text-gray-600 bg-white px-2 py-0.5 rounded border">
-                              {qtyAkhir} {item.namaSatuan}
+                              {formatQuantity(qtyAkhir)} {item.namaSatuan}
                             </span>
                             <span className="font-bold text-emerald-700">
-                              Rp{(qtyAkhir * item.hargaBeliSatuan).toLocaleString('id-ID')}
+                              Rp{calculateSubtotal(item.hargaBeliSatuan, qtyAkhir).toLocaleString('id-ID')}
                             </span>
                           </>
                         )}

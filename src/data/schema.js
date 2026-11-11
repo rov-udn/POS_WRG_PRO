@@ -8,8 +8,10 @@ export const SINGLE_PRODUCT_SCHEMA = {
   idProduk: "PRD-1728123456789", // Unique Identifier (bisa generate via Date.now() atau UUID)
   namaProduk: "Kopi Susu Pouch 1L",
   kategori: "Minuman",
-  stokUtama: 120, // TOTAL STOK FISIK (Selalu disimpan dalam unit Satuan Terkecil / Base Unit)
-  satuanTerkecil: "Pcs", // Nama string dari satuan yang bernilai isBase: true
+  punyaVarian: false,
+  varian: [],
+  stokUtama: 120, // Total stok disimpan dalam satuan yang bernilai isBase: true
+  satuanTerkecil: "Pcs", // Nama satuan dasar aktif (field lama dipertahankan)
   
   // Array dari semua tingkatan satuan yang dimiliki oleh barang ini (1, 2, atau 3 satuan)
   listSatuan: [
@@ -19,8 +21,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       barcode: "899123456001",
       hargaBeli: 240000, // Harga modal per Dus
       hargaJual: 280000, // Harga jual per Dus
-      rasio: 24,          // 1 Dus = 24 Pcs (Satuan Terkecil)
-      isBase: false      // Bukan satuan terkecil
+      rasio: 24,          // 1 Dus = 24 Pcs (satuan dasar aktif)
+      isBase: false
     },
     {
       idSatuan: "SAT-002",
@@ -29,7 +31,7 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 61000,  // Harga modal per Pack
       hargaJual: 72000,  // Harga jual per Pack
       rasio: 6,          // 1 Pack = 6 Pcs
-      isBase: false      // Bukan satuan terkecil
+      isBase: false
     },
     {
       idSatuan: "SAT-003",
@@ -37,8 +39,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       barcode: "899123456003",
       hargaBeli: 10000,  // Harga modal per Pcs (Hasil dari: Harga Dus / Rasio Dus)
       hargaJual: 12500,  // Harga jual eceran
-      rasio: 1,          // Satuan terkecil SELALU ber-rasio 1
-      isBase: true       // PENANDA SATUAN TERKECIL (Base Unit)
+      rasio: 1,          // Satuan dasar aktif selalu ber-rasio 1
+      isBase: true
     }
   ]
 };
@@ -101,7 +103,22 @@ export const TRANSACTION_SCHEMA = {
   kembalian: 20000
 };
 
-// 5. DUMMY DATA UNTUK DUMMY STATE FRONTEND
+// 5. REKAP PENUTUPAN SHIFT (akses melalui laporan Admin)
+export const SHIFT_RECONCILIATION_SCHEMA = {
+  idShift: "SHIFT-1728123456789-USER_ID",
+  idKasir: "USER_ID",
+  namaKasir: "Nama Kasir",
+  waktuMulai: "2026-10-05T08:00:00Z",
+  waktuTutup: "2026-10-05T17:00:00Z",
+  cashStart: 0,
+  totalTunaiMasuk: 280000,
+  kasKeluar: 0,
+  cashExpected: 280000,
+  cashActual: 280000,
+  selisih: 0
+};
+
+// 6. DUMMY DATA UNTUK DUMMY STATE FRONTEND
 export const INITIAL_PRODUCTS_DUMMY = [
   SINGLE_PRODUCT_SCHEMA,
   {

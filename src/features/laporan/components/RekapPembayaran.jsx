@@ -1,6 +1,11 @@
 import React from 'react';
 
-export default function RekapPembayaran({ totalTunai = 0, totalNonTunai = 0, transaksiCount = 0 }) {
+export default function RekapPembayaran({
+  totalTunaiMasuk = 0,
+  totalKasKeluar = 0,
+  totalNonTunai = 0,
+  transaksiCount = 0
+}) {
   const formatRupiah = (angka) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -9,9 +14,11 @@ export default function RekapPembayaran({ totalTunai = 0, totalNonTunai = 0, tra
     }).format(angka || 0);
   };
 
+  const totalTunai = totalTunaiMasuk - totalKasKeluar;
   const totalPembayaran = totalTunai + totalNonTunai;
-  const persenTunai = totalPembayaran > 0 ? Math.round((totalTunai / totalPembayaran) * 100) : 0;
-  const persenNonTunai = totalPembayaran > 0 ? Math.round((totalNonTunai / totalPembayaran) * 100) : 0;
+  const totalPenerimaan = totalTunaiMasuk + totalNonTunai;
+  const persenTunai = totalPenerimaan > 0 ? Math.round((totalTunaiMasuk / totalPenerimaan) * 100) : 0;
+  const persenNonTunai = totalPenerimaan > 0 ? Math.round((totalNonTunai / totalPenerimaan) * 100) : 0;
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm space-y-3">
@@ -21,7 +28,7 @@ export default function RekapPembayaran({ totalTunai = 0, totalNonTunai = 0, tra
           <p className="text-[11px] text-gray-400">Rincian metode pembayaran dari {transaksiCount} transaksi.</p>
         </div>
         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">
-          Total: {formatRupiah(totalPembayaran)}
+          Saldo bersih: {formatRupiah(totalPembayaran)}
         </span>
       </div>
 
@@ -29,11 +36,13 @@ export default function RekapPembayaran({ totalTunai = 0, totalNonTunai = 0, tra
         {/* Jalur Tunai / Cash */}
         <div className="p-3 bg-green-50 rounded-lg border border-green-100 space-y-1">
           <div className="flex justify-between items-center text-green-800 font-semibold">
-            <span>Uang Tunai (Laci Kasir)</span>
+            <span>Saldo Tunai (Laci Kasir)</span>
             <span>{persenTunai}%</span>
           </div>
           <p className="text-lg font-bold text-green-700">{formatRupiah(totalTunai)}</p>
-          <p className="text-[10px] text-green-600">Uang fisik yang harus ada di laci.</p>
+          <p className="text-[10px] text-green-600">
+            Masuk {formatRupiah(totalTunaiMasuk)} - keluar {formatRupiah(totalKasKeluar)}.
+          </p>
         </div>
 
         {/* Jalur Non-Tunai / Digital */}

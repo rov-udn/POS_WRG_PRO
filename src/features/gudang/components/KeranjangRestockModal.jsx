@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import BaseModal from '../../../components/ui/BaseModal';
+import { useAppMode } from '../../../hooks/useAppMode';
 
 export default function KeranjangRestockModal({
   isOpen,
@@ -9,23 +10,29 @@ export default function KeranjangRestockModal({
   onHapusItem,
   onProsesMassal
 }) {
+  const { fitur } = useAppMode();
   const [catatan, setCatatan] = useState('');
 
   const handleProses = (e) => {
     e.preventDefault();
     if (keranjang.length === 0) return;
-    onProsesMassal(catatan);
+    const berhasil = onProsesMassal(fitur.ubahStok ? catatan : '');
+    if (berhasil === false) return;
     setCatatan('');
     onClose();
-    alert('Semua barang dalam keranjang berhasil di-restock!');
+    alert(
+      fitur.ubahStok
+        ? 'Semua barang dalam keranjang berhasil di-restock!'
+        : 'Harga beli berhasil diperbarui!'
+    );
   };
 
   return (
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Keranjang Restock Massal"
-      subtitle={`${keranjang.length} barang siap diperbarui stoknya`}
+      title={fitur.ubahStok ? 'Keranjang Restock Massal' : 'Pembaruan Harga Pembelian'}
+      subtitle={`${keranjang.length} barang siap diperbarui ${fitur.ubahStok ? 'stoknya' : 'harga modalnya'}`}
       size="lg"
     >
       <form onSubmit={handleProses} className="space-y-4">
@@ -40,9 +47,11 @@ export default function KeranjangRestockModal({
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-bold text-sm text-gray-800">{item.namaProduk}</h4>
-                    <p className="text-xs text-gray-500">
-                      Stok saat ini: {item.stokUtamaSaatIni} {item.satuanTerkecil}
-                    </p>
+                    {fitur.lihatStok && (
+                      <p className="text-xs text-gray-500">
+                        Stok saat ini: {item.stokUtamaSaatIni} {item.satuanTerkecil}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -53,12 +62,10 @@ export default function KeranjangRestockModal({
                   </button>
                 </div>
 
-                {/* Form Baris Memanjang Minimalis */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 bg-gray-50 p-2.5 rounded-lg text-xs">
-                  {/* Pilihan Satuan & Qty */}
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={item.idSatuanDipilih}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={item.idSatuanDipilih}
                       onChange={(e) => onUbahItem(item.idProduk, 'idSatuanDipilih', e.target.value)}
                       className="px-2 py-1 border rounded bg-white font-medium"
                     >
@@ -68,42 +75,56 @@ export default function KeranjangRestockModal({
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.qtyRestock}
-                      onChange={(e) => onUbahItem(item.idProduk, 'qtyRestock', e.target.value)}
-                      className="w-16 px-2 py-1 border rounded bg-white text-center font-bold"
-                      placeholder="Qty"
-                      required
-                    />
+                    {fitur.ubahStok && (
+                      <input
+                        type="number"
+                        min="0.001"
+                        step="any"
+                        value={item.qtyRestock}
+                        onChange={(e) => onUbahItem(item.idProduk, 'qtyRestock', e.target.value)}
+                        className="w-16 px-2 py-1 border rounded bg-white text-center font-bold"
+                        placeholder="Qty"
+                        required
+                      />
+                    )}
                   </div>
 
-                  {/* Info Pembanding Harga Beli */}
                   <div className="flex flex-col justify-center text-[11px] text-gray-600">
                     <span>Modal Master: <b>Rp{Number(item.hargaBeliMaster).toLocaleString('id-ID')}</b></span>
                   </div>
 
-                  {/* Checkbox Update Harga */}
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={item.updateHargaBeli}
-                        onChange={(e) => onUbahItem(item.idProduk, 'updateHargaBeli', e.target.checked)}
-                        className="rounded text-blue-600"
-                      />
-                      <span className="text-[11px]">Update Modal:</span>
-                    </label>
-                    {item.updateHargaBeli && (
+                  {fitur.ubahStok ? (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={item.updateHargaBeli}
+                          onChange={(e) => onUbahItem(item.idProduk, 'updateHargaBeli', e.target.checked)}
+                          className="rounded text-blue-600"
+                        />
+                        <span className="text-[11px]">Update Modal:</span>
+                      </label>
+                      {item.updateHargaBeli && (
+                        <input
+                          type="number"
+                          value={item.hargaBeliBaru}
+                          onChange={(e) => onUbahItem(item.idProduk, 'hargaBeliBaru', e.target.value)}
+                          className="w-24 px-1.5 py-0.5 border rounded bg-white font-semibold"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 text-[11px] text-gray-700">
+                      Harga beli baru:
                       <input
                         type="number"
+                        min="0"
                         value={item.hargaBeliBaru}
                         onChange={(e) => onUbahItem(item.idProduk, 'hargaBeliBaru', e.target.value)}
-                        className="w-24 px-1.5 py-0.5 border rounded bg-white font-semibold"
+                        className="w-28 px-1.5 py-1 border rounded bg-white font-semibold"
                       />
-                    )}
-                  </div>
+                    </label>
+                  )}
                 </div>
               </div>
             ))}
@@ -112,7 +133,7 @@ export default function KeranjangRestockModal({
 
         {keranjang.length > 0 && (
           <div className="space-y-3 pt-3 border-t">
-            <div>
+            {fitur.ubahStok && <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Catatan Nota / Agen</label>
               <input
                 type="text"
@@ -121,7 +142,7 @@ export default function KeranjangRestockModal({
                 placeholder="Contoh: Belanja Agen Makmur"
                 className="w-full px-3 py-1.5 border rounded-lg text-sm"
               />
-            </div>
+            </div>}
 
             <div className="flex justify-end gap-2">
               <button
@@ -135,7 +156,7 @@ export default function KeranjangRestockModal({
                 type="submit"
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold"
               >
-                Proses Restock Semua ({keranjang.length})
+                {fitur.ubahStok ? 'Proses Restock' : 'Simpan Harga'} ({keranjang.length})
               </button>
             </div>
           </div>

@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useKasir } from './hooks/useKasir';
 import PencarianProduk from './components/PencarianProduk';
 import DaftarProdukKasir from './components/DaftarProdukKasir';
 import KeranjangKasir from './components/KeranjangKasir';
 import Pembayaran from './components/Pembayaran';
 import Nota from './components/Nota';
+import ReturTukar from './components/ReturTukar';
+import QuickButtonEceran from './components/QuickButtonEceran';
+import useKeyboardShortcuts from '../../hooks/useKeyboardShortcuts';
 
-export default function KasirPage() {
+export default function KasirPage({ profil, pengguna }) {
   const {
     daftarProduk,
     keranjang,
@@ -21,19 +24,34 @@ export default function KasirPage() {
     dapatkanNominalCepat,
     pilihNominalCepat,
     tambahKeKeranjang,
+    tambahEceranCepat,
     ubahQtyItem,
     hapusItemKeranjang,
     prosesBayar,
+    prosesReturTukar,
     resetTransaksiSelesai,
     resetKeranjang,
     daftarDraf,
     tahanTransaksi,
     panggilDraf,
     hapusDraf,
-  } = useKasir();
+    produkKeranjangBerubah,
+  } = useKasir({
+    idKasir: pengguna?.uid,
+    namaKasir: profil?.nama || profil?.email
+  });
 
   const [kataKunci, setKataKunci] = useState('');
+  const [modeKasir, setModeKasir] = useState('PENJUALAN');
   const [tampilModalPembayaran, setTampilModalPembayaran] = useState(false);
+  const [tampilModalDraf, setTampilModalDraf] = useState(false);
+  const searchInputRef = useRef(null);
+
+  const bukaPembayaran = () => {
+    if (!transaksiSelesai && !tampilModalDraf && keranjang.length > 0) {
+      setTampilModalPembayaran(true);
+    }
+  };
 
   // Penanganan scanner barcode
   const handleScanBarcode = (kode) => {
@@ -64,6 +82,57 @@ export default function KasirPage() {
     }
   };
 
+  useKeyboardShortcuts({
+    onFocusSearch: () => {
+      if (modeKasir === 'PENJUALAN' && !transaksiSelesai && !tampilModalPembayaran && !tampilModalDraf) {
+        searchInputRef.current?.focus();
+      }
+    },
+    isPaymentOpen: () => tampilModalPembayaran,
+    onCheckout: () => {
+      if (modeKasir !== 'PENJUALAN') return;
+      if (tampilModalPembayaran) {
+        handleProsesPembayaran();
+      } else {
+        bukaPembayaran();
+      }
+    },
+    onConfirmPayment: () => {
+      if (modeKasir !== 'PENJUALAN' || !tampilModalPembayaran) return false;
+      handleProsesPembayaran();
+      return true;
+    },
+    onClearCart: () => {
+      if (
+        transaksiSelesai ||
+        modeKasir !== 'PENJUALAN' ||
+        tampilModalPembayaran ||
+        tampilModalDraf ||
+        keranjang.length === 0
+      ) {
+        return;
+      }
+      if (window.confirm('Yakin ingin mengosongkan seluruh keranjang belanja?')) {
+        resetKeranjang();
+      }
+    },
+    onEscape: () => {
+      if (transaksiSelesai) {
+        resetTransaksiSelesai();
+        return true;
+      }
+      if (tampilModalPembayaran) {
+        setTampilModalPembayaran(false);
+        return true;
+      }
+      if (tampilModalDraf) {
+        setTampilModalDraf(false);
+        return true;
+      }
+      return false;
+    }
+  });
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto min-h-screen pb-24 md:pb-6">
       
@@ -79,65 +148,94 @@ export default function KasirPage() {
         </div>
       </div>
 
-      {/* Grid Utama Layout Kasir */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        
-        {/* Kolom Kiri (Lg: 7-8 Cols): Pencarian & Katalog Produk */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-          <PencarianProduk
-            kataKunci={kataKunci}
-            onUbahKataKunci={setKataKunci}
-            onScanBarcode={handleScanBarcode}
-          />
-
-          <DaftarProdukKasir
-            daftarProduk={daftarProduk}
-            kataKunci={kataKunci}
-            onPilihProduk={tambahKeKeranjang}
-          />
-        </div>
-
-        {/* Kolom Kanan (Lg: 4-5 Cols): Keranjang Belanja */}
-        <div className="lg:col-span-5 xl:col-span-4 sticky top-4">
-          <KeranjangKasir
-            keranjang={keranjang}
-            totalQtyItems={totalQtyItems}
-            totalBayar={totalBayar}
-            daftarDraf={daftarDraf}
-            onTahanTransaksi={tahanTransaksi}
-            onPanggilDraf={panggilDraf}
-            onHapusDraf={hapusDraf}
-            onUbahQty={ubahQtyItem}
-            onHapusItem={hapusItemKeranjang}
-            onResetKeranjang={resetKeranjang}
-            onLanjutPembayaran={() => setTampilModalPembayaran(true)}
-          />
-        </div>
-
+      <div className="inline-flex rounded-xl border border-gray-200 bg-gray-100 p-1">
+        <button
+          type="button"
+          onClick={() => setModeKasir('PENJUALAN')}
+          className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+            modeKasir === 'PENJUALAN' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
+          }`}
+        >
+          Penjualan
+        </button>
+        <button
+          type="button"
+          onClick={() => setModeKasir('RETUR_TUKAR')}
+          className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+            modeKasir === 'RETUR_TUKAR' ? 'bg-white text-amber-700 shadow-sm' : 'text-gray-600'
+          }`}
+        >
+          Retur & Tukar
+        </button>
       </div>
 
-      {/* Modal Pembayaran (Dengan Quick Amount Chips) */}
-      {tampilModalPembayaran && (
-        <Pembayaran
-          totalBayar={totalBayar}
-          metodePembayaran={metodePembayaran}
-          onUbahMetodePembayaran={setMetodePembayaran}
-          jumlahUangDiterima={jumlahUangDiterima}
-          onUbahUangDiterima={setJumlahUangDiterima}
-          dapatkanNominalCepat={dapatkanNominalCepat}
-          pilihNominalCepat={pilihNominalCepat}
-          kembalian={kembalian}
-          onProsesBayar={handleProsesPembayaran}
-          onBatal={() => setTampilModalPembayaran(false)}
-        />
-      )}
+      {modeKasir === 'RETUR_TUKAR' ? (
+        <div className="mt-4">
+          <ReturTukar daftarProduk={daftarProduk} onProses={prosesReturTukar} />
+        </div>
+      ) : (
+        <>
+          <QuickButtonEceran
+            daftarProduk={daftarProduk}
+            onTambah={tambahEceranCepat}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+              <PencarianProduk
+                kataKunci={kataKunci}
+                onUbahKataKunci={setKataKunci}
+                onScanBarcode={handleScanBarcode}
+                searchInputRef={searchInputRef}
+              />
+              <DaftarProdukKasir
+                daftarProduk={daftarProduk}
+                kataKunci={kataKunci}
+                onPilihProduk={tambahKeKeranjang}
+              />
+            </div>
+            <div className="lg:col-span-5 xl:col-span-4 sticky top-4">
+              <KeranjangKasir
+                keranjang={keranjang}
+                totalQtyItems={totalQtyItems}
+                totalBayar={totalBayar}
+                daftarDraf={daftarDraf}
+                tampilModalDraf={tampilModalDraf}
+                produkBerubah={produkKeranjangBerubah}
+                onTahanTransaksi={tahanTransaksi}
+                onPanggilDraf={panggilDraf}
+                onHapusDraf={hapusDraf}
+                onBukaModalDraf={() => setTampilModalDraf(true)}
+                onTutupModalDraf={() => setTampilModalDraf(false)}
+                onUbahQty={ubahQtyItem}
+                onHapusItem={hapusItemKeranjang}
+                onResetKeranjang={resetKeranjang}
+                onLanjutPembayaran={bukaPembayaran}
+              />
+            </div>
+          </div>
 
-      {/* Modal Nota Struk (Muncul Setelah Transaksi Selesai) */}
-      {transaksiSelesai && (
-        <Nota
-          transaksi={transaksiSelesai}
-          onTutupNota={resetTransaksiSelesai}
-        />
+          {tampilModalPembayaran && (
+            <Pembayaran
+              totalBayar={totalBayar}
+              metodePembayaran={metodePembayaran}
+              onUbahMetodePembayaran={setMetodePembayaran}
+              jumlahUangDiterima={jumlahUangDiterima}
+              onUbahUangDiterima={setJumlahUangDiterima}
+              dapatkanNominalCepat={dapatkanNominalCepat}
+              pilihNominalCepat={pilihNominalCepat}
+              kembalian={kembalian}
+              onProsesBayar={handleProsesPembayaran}
+              onBatal={() => setTampilModalPembayaran(false)}
+            />
+          )}
+
+          {transaksiSelesai && (
+            <Nota
+              transaksi={transaksiSelesai}
+              onTutupNota={resetTransaksiSelesai}
+            />
+          )}
+        </>
       )}
 
     </div>

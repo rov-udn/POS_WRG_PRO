@@ -1,6 +1,11 @@
 import React from 'react';
+import MenuBadge from '../ui/MenuBadge';
 
-export default function BottomNavigation({ daftarMenu, menuAktif, onPilihMenu }) {
+export default function BottomNavigation({
+  daftarMenu,
+  menuAktif,
+  onPilihMenu
+}) {
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-20 flex justify-around items-center px-1 py-1.5 shadow-lg">
       {daftarMenu.map((menu) => {
@@ -13,8 +18,16 @@ export default function BottomNavigation({ daftarMenu, menuAktif, onPilihMenu })
               isAktif ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            <span className="text-xl leading-none">{menu.ikon}</span>
-            <span className={`text-[10px] mt-1 ${isAktif ? 'font-bold' : 'font-normal'}`}>
+            <span className="relative text-xl leading-none">
+              {menu.ikon}
+              <MenuBadge
+                count={menu.badgeCount}
+                dot={menu.badgeDot}
+                label={menu.badgeLabel}
+                compact
+              />
+            </span>
+            <span className={`mt-1 text-[9px] sm:text-[10px] ${isAktif ? 'font-bold' : 'font-normal'}`}>
               {menu.label}
             </span>
           </button>

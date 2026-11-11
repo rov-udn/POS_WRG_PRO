@@ -203,8 +203,22 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
                 </td>
                 <td className="p-3 font-semibold text-gray-800">{trx.noStruk}</td>
                 <td className="p-3 text-gray-700">{trx.namaKasir}</td>
-                <td className="p-3 text-gray-600">{trx.totalQtyItems} pcs</td>
-                <td className="p-3 font-bold text-green-600">{formatRupiah(trx.totalBayar)}</td>
+                <td className="p-3 text-gray-600">
+                  {trx.tipeTransaksi === 'RETUR_TUKAR'
+                    ? `Retur / Tukar (${trx.totalQtyItems} pcs)`
+                    : `${trx.totalQtyItems} pcs`}
+                </td>
+                <td className={`p-3 font-bold ${
+                  trx.tipeTransaksi === 'RETUR_TUKAR' && trx.arusKasKeluar > 0
+                    ? 'text-orange-600'
+                    : 'text-green-600'
+                }`}>
+                  {trx.tipeTransaksi === 'RETUR_TUKAR' && trx.arusKasKeluar > 0
+                    ? `Refund ${formatRupiah(trx.arusKasKeluar)}`
+                    : trx.tipeTransaksi === 'RETUR_TUKAR'
+                      ? `Masuk ${formatRupiah(trx.arusKasMasuk + trx.arusKasMasukNonTunai)}`
+                      : formatRupiah(trx.totalBayar)}
+                </td>
                 <td className="p-3">
                   <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                     trx.metodePembayaran === 'CASH'
@@ -219,7 +233,7 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
                     onClick={() => onPilihTransaksi(trx)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium transition-colors"
                   >
-                    Detail Struk
+                    {trx.tipeTransaksi === 'RETUR_TUKAR' ? 'Detail Retur' : 'Detail Struk'}
                   </button>
                 </td>
               </tr>

@@ -1,44 +1,24 @@
 import React, { useState } from 'react';
+import NotaAgen from './NotaAgen';
+import QuantityInput from '../../../components/ui/QuantityInput';
+import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
 
 export default function DrafBelanjaModal({
   isOpen,
   onClose,
   daftarDraf,
+  produkDrafBerubah = {},
   daftarRiwayatKulakan = [],
+  profilToko,
   onToggleKosong,
   onUbahQtyReal,
   onKirimKeGudang,
   onHapusDraf
 }) {
   const [tabAktifModal, setTabAktifModal] = useState('DRAF'); // 'DRAF' atau 'RIWAYAT'
+  const [drafDipilihNota, setDrafDipilihNota] = useState(null);
 
   if (!isOpen) return null;
-
-  const handlePrintDraf = (draf) => {
-    window.print();
-  };
-
-  const handleShareDraf = (draf) => {
-    const teksItems = draf.items
-      .map((item) => {
-        const status = item.isKosongDiAgen ? ' (KOSONG DI AGEN)' : '';
-        const qtyInfo = item.qtyReal !== undefined ? `${item.qtyReal}` : item.qty;
-        return `- ${item.namaProduk} (${qtyInfo} ${item.namaSatuan})${status}`;
-      })
-      .join('\n');
-
-    const pesan = `*DAFTAR BELANJA AGEN: ${draf.namaAgen.toUpperCase()}*\nTanggal: ${new Date(draf.tanggal).toLocaleDateString('id-ID')}\n\n${teksItems}\n\n*Estimasi Modal: Rp${draf.totalEstimasiModal.toLocaleString('id-ID')}*`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: `Draf Belanja - ${draf.namaAgen}`,
-        text: pesan
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(pesan);
-      alert('📋 Daftar belanja berhasil disalin ke clipboard!');
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
@@ -96,6 +76,13 @@ export default function DrafBelanjaModal({
             ) : (
               daftarDraf.map((draf) => (
                 <div key={draf.idDraf} className="bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-3">
+                  {(produkDrafBerubah[draf.idDraf] || []).length > 0 && (
+                    <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <b>Perhatian:</b> Master produk berubah setelah draf dibuat atau
+                      snapshot belum tersedia ({produkDrafBerubah[draf.idDraf].join(', ')}).
+                      Qty dan harga draf tetap dibekukan.
+                    </p>
+                  )}
                   <div className="flex items-center justify-between border-b border-gray-200 pb-2">
                     <div>
                       <h4 className="font-extrabold text-gray-800 text-sm">{draf.namaAgen}</h4>
@@ -106,7 +93,14 @@ export default function DrafBelanjaModal({
                     <div className="text-right">
                       <span className="text-xs font-bold text-gray-500 uppercase block">Estimasi Modal:</span>
                       <span className="text-base font-black text-emerald-700">
-                        Rp{draf.totalEstimasiModal.toLocaleString('id-ID')}
+                        Rp{draf.items
+                          .filter((item) => !item.isKosongDiAgen)
+                          .reduce(
+                            (sum, item) =>
+                              sum + calculateSubtotal(item.hargaBeliSatuan, item.qtyReal ?? item.qty),
+                            0
+                          )
+                          .toLocaleString('id-ID')}
                       </span>
                     </div>
                   </div>
@@ -142,18 +136,17 @@ export default function DrafBelanjaModal({
                             <span className="text-[10px] text-red-600 font-extrabold">[KOSONG]</span>
                           ) : (
                             <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min="0"
+                              <QuantityInput
                                 value={item.qtyReal !== undefined ? item.qtyReal : item.qty}
-                                onChange={(e) => onUbahQtyReal && onUbahQtyReal(draf.idDraf, item.idProduk, item.idSatuan, e.target.value)}
+                                min={0}
+                                onChange={(qty) => onUbahQtyReal && onUbahQtyReal(draf.idDraf, item.idProduk, item.idSatuan, qty)}
                                 className="w-16 px-2 py-1 text-center border rounded-lg font-bold text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-amber-500"
                               />
                               <span className="text-[11px] font-semibold text-gray-500">{item.namaSatuan}</span>
                             </div>
                           )}
                           <span className="font-bold text-gray-700 w-20 text-right">
-                            Rp{(!item.isKosongDiAgen ? (item.qtyReal ?? item.qty) * item.hargaBeliSatuan : 0).toLocaleString('id-ID')}
+                            Rp{(!item.isKosongDiAgen ? calculateSubtotal(item.hargaBeliSatuan, item.qtyReal ?? item.qty) : 0).toLocaleString('id-ID')}
                           </span>
                         </div>
                       </div>
@@ -165,17 +158,10 @@ export default function DrafBelanjaModal({
                     <div className="flex gap-1.5">
                       <button
                         type="button"
-                        onClick={() => handleShareDraf(draf)}
-                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl border border-blue-200 transition-colors"
+                        onClick={() => setDrafDipilihNota(draf)}
+                        className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl border border-amber-200 transition-colors flex items-center gap-1.5"
                       >
-                        📲 Share
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handlePrintDraf(draf)}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl border border-gray-300 transition-colors"
-                      >
-                        🖨️ Print
+                        <span>📄</span> Lihat / Cetak Nota
                       </button>
                       <button
                         type="button"
@@ -190,8 +176,8 @@ export default function DrafBelanjaModal({
                       type="button"
                       onClick={() => {
                         if (window.confirm('Arsip ke riwayat kulakan & kirim item valid ke Gudang sekarang?')) {
-                          onKirimKeGudang(draf);
-                          onClose();
+                          const berhasil = onKirimKeGudang(draf);
+                          if (berhasil !== false) onClose();
                         }
                       }}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95"
@@ -242,10 +228,10 @@ export default function DrafBelanjaModal({
                         <span className="font-bold truncate">{item.namaProduk}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-[10px] font-semibold bg-gray-100 px-1.5 py-0.5 rounded">
-                            {item.isKosongDiAgen ? 'KOSONG' : `${item.qtyReal ?? item.qty} ${item.namaSatuan}`}
+                            {item.isKosongDiAgen ? 'KOSONG' : `${formatQuantity(item.qtyReal ?? item.qty)} ${item.namaSatuan}`}
                           </span>
                           <span className="font-bold">
-                            Rp{(!item.isKosongDiAgen ? (item.qtyReal ?? item.qty) * item.hargaBeliSatuan : 0).toLocaleString('id-ID')}
+                            Rp{(!item.isKosongDiAgen ? calculateSubtotal(item.hargaBeliSatuan, item.qtyReal ?? item.qty) : 0).toLocaleString('id-ID')}
                           </span>
                         </div>
                       </div>
@@ -267,6 +253,13 @@ export default function DrafBelanjaModal({
             Tutup
           </button>
         </div>
+        {drafDipilihNota && (
+          <NotaAgen
+            draf={drafDipilihNota}
+            profilToko={profilToko}
+            onTutup={() => setDrafDipilihNota(null)}
+          />
+        )}
       </div>
     </div>
   );

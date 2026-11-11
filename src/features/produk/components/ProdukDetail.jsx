@@ -1,10 +1,12 @@
 import React from 'react';
 import { formatRupiah, formatStokUtama } from '../utils/produkUtils';
 import { hitungMarginPersen } from '../utils/produkUtils';
+import { useAppMode } from '../../../hooks/useAppMode';
 
 
 
 export default function ProdukDetail({ produk, onTutup }) {
+  const { fitur } = useAppMode();
   if (!produk) return null;
 
   return (
@@ -21,14 +23,14 @@ export default function ProdukDetail({ produk, onTutup }) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-sm">
+      <div className={`grid gap-2 text-sm ${fitur.lihatStok ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <div>
           <span className="text-gray-500">Kategori:</span> {produk.kategori}
         </div>
-        <div>
+        {fitur.lihatStok && <div>
           <span className="text-gray-500">Stok Utama:</span>{' '}
           {formatStokUtama(produk.stokUtama, produk.satuanTerkecil)}
-        </div>
+        </div>}
       </div>
 
       <div>

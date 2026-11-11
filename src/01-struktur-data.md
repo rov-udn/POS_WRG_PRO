@@ -74,6 +74,14 @@ export const SINGLE_PRODUCT_SCHEMA = {
 
 ## Penjelasan Field
 
+### Impor data produk lama
+
+Menu Master Produk dapat mengimpor file JSON berbentuk array. Data lama dipetakan
+ke field produk di atas, termasuk satuan eceran sebagai satuan dasar dan satuan
+grosir bila rasio `isiKeEceran` valid. Impor menggunakan `id` lama sebagai
+Document ID (atau ID baru bila kosong), menulis ke koleksi `products` dengan
+merge, dan memproses maksimal 500 produk per batch.
+
 ### `idProduk`
 
 ID unik produk.
@@ -145,7 +153,8 @@ bukan:
 
 ### `satuanTerkecil`
 
-Nama satuan dasar stok.
+Nama satuan dasar stok aktif. Nama field dipertahankan untuk kompatibilitas,
+meskipun satuan dasar yang dipilih tidak harus merupakan satuan terkecil.
 
 Contoh:
 
@@ -164,7 +173,7 @@ Setiap satuan dapat mempunyai:
 - barcode
 - harga beli
 - harga jual
-- rasio terhadap satuan terkecil
+- rasio jumlah satuan dasar dalam satu satuan tersebut
 - penanda apakah satuan tersebut merupakan satuan dasar
 
 ### `idSatuan`
@@ -229,7 +238,8 @@ Pcs = Rp12.500
 
 ### `rasio`
 
-Jumlah satuan terkecil yang terdapat dalam satu satuan tersebut.
+Jumlah satuan dasar aktif yang terdapat dalam satu satuan tersebut. Satuan
+dengan `isBase: true` selalu memiliki rasio `1`.
 
 Contoh:
 
@@ -241,7 +251,10 @@ Pcs  = 1 Pcs  → rasio 1
 
 ### `isBase`
 
-Menentukan apakah satuan tersebut adalah satuan terkecil/dasar.
+Menentukan satuan dasar aktif yang menjadi acuan rasio dan penyimpanan stok.
+Tepat satu satuan harus bernilai `true`, dan rasionya selalu `1`. Satuan dasar
+dapat dipilih secara bebas; rasio satuan lainnya disesuaikan terhadap pilihan
+tersebut.
 
 ```js
 isBase: true

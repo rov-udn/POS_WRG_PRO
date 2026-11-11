@@ -1,6 +1,8 @@
 import React from 'react';
+import { useAppMode } from '../../../hooks/useAppMode';
 
 export default function RiwayatRestock({ riwayatRestock }) {
+  const { fitur } = useAppMode();
   return (
     <div className="space-y-4">
       <h2 className="text-base font-bold text-gray-800">Riwayat Log Gudang (Restock & Penyesuaian)</h2>
@@ -12,8 +14,8 @@ export default function RiwayatRestock({ riwayatRestock }) {
               <th className="p-3">Tanggal</th>
               <th className="p-3">Produk</th>
               <th className="p-3">Aksi / Alasan</th>
-              <th className="p-3">Perubahan (Pcs)</th>
-              <th className="p-3">Stok Akhir</th>
+              {fitur.lihatStok && <th className="p-3">Perubahan (Pcs)</th>}
+              {fitur.lihatStok && <th className="p-3">Stok Akhir</th>}
               <th className="p-3">Catatan</th>
             </tr>
           </thead>
@@ -31,16 +33,20 @@ export default function RiwayatRestock({ riwayatRestock }) {
                     {log.alasan}
                   </span>
                 </td>
-                <td className={`p-3 font-bold ${log.tipeAksi === 'PENAMBAHAN' ? 'text-green-600' : 'text-red-600'}`}>
-                  {log.tipeAksi === 'PENAMBAHAN' ? `+${log.totalPerubahanPcs}` : `-${log.totalPerubahanPcs}`}
-                </td>
-                <td className="p-3 text-gray-700 font-semibold">{log.stokSesudah}</td>
+                {fitur.lihatStok && (
+                  <td className={`p-3 font-bold ${log.tipeAksi === 'PENAMBAHAN' ? 'text-green-600' : 'text-red-600'}`}>
+                    {log.tipeAksi === 'PENAMBAHAN' ? `+${log.totalPerubahanPcs}` : `-${log.totalPerubahanPcs}`}
+                  </td>
+                )}
+                {fitur.lihatStok && (
+                  <td className="p-3 text-gray-700 font-semibold">{log.stokSesudah}</td>
+                )}
                 <td className="p-3 text-xs text-gray-500">{log.catatan}</td>
               </tr>
             ))}
             {riwayatRestock.length === 0 && (
               <tr>
-                <td colSpan="6" className="p-6 text-center text-gray-400 text-sm">
+                <td colSpan={fitur.lihatStok ? 6 : 4} className="p-6 text-center text-gray-400 text-sm">
                   Belum ada riwayat aktivitas gudang.
                 </td>
               </tr>

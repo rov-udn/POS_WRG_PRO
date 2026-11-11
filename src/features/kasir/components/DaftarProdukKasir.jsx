@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatQuantity } from '../../../utils/formatQuantity';
 
 export default function DaftarProdukKasir({
   daftarProduk,
@@ -68,11 +69,11 @@ export default function DaftarProdukKasir({
                   </span>
                 ) : apakahSedikit ? (
                   <span className="shrink-0 px-2.5 py-0.5 text-xs font-black text-amber-800 bg-amber-100 rounded-lg">
-                    Sisa {stok} {satuanBase.namaSatuan || 'Pcs'}
+                    Sisa {formatQuantity(stok)} {satuanBase.namaSatuan || 'Pcs'}
                   </span>
                 ) : (
                   <span className="shrink-0 px-2.5 py-0.5 text-xs font-bold text-emerald-800 bg-emerald-100/70 rounded-lg">
-                    Stok {stok}
+                    Stok {formatQuantity(stok)}
                   </span>
                 )}
               </div>
