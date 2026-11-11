@@ -97,7 +97,9 @@ export default function useUserProfile() {
   return {
     pengguna,
     profil,
-    role: profil ? (profil.role === 'admin' ? 'admin' : 'karyawan') : null,
+    role: profil
+      ? (['admin', 'super_admin'].includes(profil.role) ? profil.role : 'karyawan')
+      : null,
     sedangMemuat,
     pesanError
   };

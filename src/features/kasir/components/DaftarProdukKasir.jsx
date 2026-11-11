@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { formatQuantity } from '../../../utils/formatQuantity';
+import { useAppMode } from '../../../hooks/useAppMode';
 
 export default function DaftarProdukKasir({
   daftarProduk,
   kataKunci,
   onPilihProduk
 }) {
+  const { fitur } = useAppMode();
   // Simpan pilihan satuan aktif untuk produk tertentu { [idProduk]: idSatuan }
   const [satuanTerpilih, setSatuanTerpilih] = useState({});
 
@@ -31,9 +33,9 @@ export default function DaftarProdukKasir({
   return (
     <div className="flex flex-col space-y-2.5 max-h-[calc(100vh-210px)] overflow-y-auto pr-1">
       {produkTersaring.map((produk) => {
-        const stok = Number(produk.stokUtama) || 0;
-        const apakahHabis = stok <= 0;
-        const apakahSedikit = stok > 0 && stok <= 10;
+        const stok = fitur.lihatStok ? Number(produk.stokUtama) || 0 : 0;
+        const apakahHabis = fitur.validasiStok && stok <= 0;
+        const apakahSedikit = fitur.lihatStok && stok > 0 && stok <= 10;
 
         const listSatuan = produk.listSatuan || [];
         const satuanBase = listSatuan.find((s) => s.isBase) || listSatuan[0] || {};
@@ -62,8 +64,8 @@ export default function DaftarProdukKasir({
                   {produk.namaProduk}
                 </h3>
 
-                {/* Badge Stok Lebih Besar */}
-                {apakahHabis ? (
+                {/* Badge stok hanya ditampilkan jika mode aktif mengelola stok. */}
+                {fitur.lihatStok && (apakahHabis ? (
                   <span className="shrink-0 px-2.5 py-0.5 text-xs font-black text-red-700 bg-red-100 rounded-lg">
                     Habis
                   </span>
@@ -75,7 +77,7 @@ export default function DaftarProdukKasir({
                   <span className="shrink-0 px-2.5 py-0.5 text-xs font-bold text-emerald-800 bg-emerald-100/70 rounded-lg">
                     Stok {formatQuantity(stok)}
                   </span>
-                )}
+                ))}
               </div>
 
               {/* Pilihan Chip Satuan (Lebih Besar & Nyaman Di-tap) */}

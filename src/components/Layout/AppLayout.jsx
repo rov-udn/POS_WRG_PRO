@@ -67,7 +67,11 @@ export default function AppLayout({
   });
   const namaToko = settings.profil.namaToko;
   const namaPengguna = profil.nama || profil.email || 'Pengguna';
-  const labelRole = profil.role === 'admin' ? 'Admin' : 'Karyawan';
+  const labelRole = profil.role === 'super_admin'
+    ? 'Super Admin'
+    : profil.role === 'admin'
+      ? 'Admin'
+      : 'Karyawan';
   const isKasir = profil.role === 'karyawan';
 
   useEffect(() => {

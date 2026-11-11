@@ -56,7 +56,7 @@ const MENU_SETTING = [
   {
     id: 'karyawan',
     judul: 'Manajemen Karyawan',
-    deskripsi: 'Buat akun karyawan untuk toko Anda.',
+    deskripsi: 'Kelola akun karyawan dan persetujuan pendaftaran.',
     ikon: '👥'
   },
   {
@@ -98,6 +98,9 @@ function renderSubMenu(activeMenu, profil, roleAktif) {
     case 'keamanan':
       return <AkunKeamananSection />;
     case 'karyawan':
+      if (roleAktif === 'super_admin') {
+        return <TambahKaryawanForm role={roleAktif} />;
+      }
       if (roleAktif !== 'admin') return null;
       if (!profil.store_id) {
         return (
@@ -106,7 +109,7 @@ function renderSubMenu(activeMenu, profil, roleAktif) {
           </p>
         );
       }
-      return <TambahKaryawanForm storeId={profil.store_id} />;
+      return <TambahKaryawanForm storeId={profil.store_id} role={roleAktif} />;
     case 'backup':
       return <BackupRestoreSection />;
     case 'tentang':
@@ -127,7 +130,9 @@ export default function SettingPage({
   const daftarMenu = MENU_SETTING.filter((menu) => (
     roleAktif === 'admin'
       ? true
-      : MENU_SETTING_KARYAWAN.has(menu.id)
+      : roleAktif === 'super_admin'
+        ? menu.id === 'karyawan'
+        : MENU_SETTING_KARYAWAN.has(menu.id)
   ));
   const menuAktif = daftarMenu.find((menu) => menu.id === activeMenu);
 
