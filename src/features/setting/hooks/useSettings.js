@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { beriTahuMenuNotificationsDiperbarui } from '../../../utils/menuNotifications';
 
 const KUNCI_STORAGE_SETTINGS = 'pos_wrg_settings';
 
@@ -62,6 +63,7 @@ export function useSettings() {
   useEffect(() => {
     try {
       localStorage.setItem(KUNCI_STORAGE_SETTINGS, JSON.stringify(settings));
+      beriTahuMenuNotificationsDiperbarui();
     } catch (error) {
       console.error('Gagal menyimpan pengaturan ke localStorage:', error);
     }

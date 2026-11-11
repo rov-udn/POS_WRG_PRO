@@ -103,7 +103,22 @@ export const TRANSACTION_SCHEMA = {
   kembalian: 20000
 };
 
-// 5. DUMMY DATA UNTUK DUMMY STATE FRONTEND
+// 5. REKAP PENUTUPAN SHIFT (akses melalui laporan Admin)
+export const SHIFT_RECONCILIATION_SCHEMA = {
+  idShift: "SHIFT-1728123456789-USER_ID",
+  idKasir: "USER_ID",
+  namaKasir: "Nama Kasir",
+  waktuMulai: "2026-10-05T08:00:00Z",
+  waktuTutup: "2026-10-05T17:00:00Z",
+  cashStart: 0,
+  totalTunaiMasuk: 280000,
+  kasKeluar: 0,
+  cashExpected: 280000,
+  cashActual: 280000,
+  selisih: 0
+};
+
+// 6. DUMMY DATA UNTUK DUMMY STATE FRONTEND
 export const INITIAL_PRODUCTS_DUMMY = [
   SINGLE_PRODUCT_SCHEMA,
   {

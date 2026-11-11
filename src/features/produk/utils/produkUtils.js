@@ -114,8 +114,9 @@ export const hitungRasioSatuanKeBasisSaatIni = (item, produk) => {
   const snapshot = item?.snapshotProduk;
   if (!snapshot || !produk) return null;
 
+  const idSatuan = item?.idSatuan ?? item?.idSatuanDipilih;
   const satuanTransaksi = snapshot.listSatuan?.find(
-    (satuan) => satuan.idSatuan === item.idSatuan
+    (satuan) => satuan.idSatuan === idSatuan
   );
   const listSatuanSaatIni = normalisasiRasioSatuan(produk.listSatuan || []);
   const satuanDasarSaatIni = listSatuanSaatIni.find((satuan) => satuan.isBase);

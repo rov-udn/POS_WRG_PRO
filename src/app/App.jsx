@@ -25,8 +25,10 @@ export default function App() {
 
     try {
       await signOut(auth);
+      return true;
     } catch {
       setPesanErrorKeluar('Gagal keluar. Silakan coba lagi.');
+      return false;
     }
   };
 
@@ -49,7 +51,7 @@ export default function App() {
       case 'belanja':
         return <BelanjaPage />;
       case 'kasir':
-        return <KasirPage />;
+        return <KasirPage profil={profil} pengguna={pengguna} />;
       case 'produk':
         return <ProdukPage />;
       case 'gudang':
@@ -57,7 +59,7 @@ export default function App() {
       case 'history':
         return <RiwayatPage />;
       case 'laporan':
-        return <LaporanPage />;
+        return <LaporanPage role={role} />;
       case 'setting':
         return (
           <SettingPage
@@ -117,6 +119,7 @@ export default function App() {
       onPilihMenu={tanganiPilihMenu}
       daftarMenuDiizinkan={daftarMenuDiizinkan}
       profil={profil}
+      pengguna={pengguna}
       onKeluar={tanganiKeluar}
     >
       {pesanErrorKeluar && (

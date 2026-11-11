@@ -18,7 +18,7 @@ export default function DetailTransaksi({ transaksi, isOpen, onClose }) {
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Detail Struk: ${transaksi.noStruk}`}
+      title={`Detail ${transaksi.tipeTransaksi === 'RETUR_TUKAR' ? 'Retur/Tukar' : 'Struk'}: ${transaksi.noStruk}`}
       subtitle={`Waktu: ${new Date(transaksi.tanggal).toLocaleString('id-ID', {
         dateStyle: 'full',
         timeStyle: 'medium'
@@ -38,13 +38,18 @@ export default function DetailTransaksi({ transaksi, isOpen, onClose }) {
           </div>
         </div>
 
-        {/* Daftar Item Barang yang Dibeli */}
+        {/* Daftar barang yang diproses */}
         <div className="border-t border-b divide-y py-2 max-h-60 overflow-y-auto">
-          <p className="text-xs font-bold text-gray-600 uppercase mb-1">Rincian Barang</p>
+          <p className="text-xs font-bold text-gray-600 uppercase mb-1">
+            {transaksi.tipeTransaksi === 'RETUR_TUKAR' ? 'Barang kembali / pengganti' : 'Rincian Barang'}
+          </p>
           {transaksi.items && transaksi.items.map((item, idx) => (
             <div key={idx} className="py-2 flex justify-between items-center text-xs">
               <div>
-                <p className="font-semibold text-gray-800">{item.namaProduk}</p>
+                <p className="font-semibold text-gray-800">
+                  {item.arah === 'MASUK' ? 'Dikembalikan: ' : item.arah === 'KELUAR' ? 'Pengganti: ' : ''}
+                  {item.namaProduk}
+                </p>
                 <p className="text-gray-500">
                   {item.qty} {item.namaSatuan} × {formatRupiah(item.hargaJualSatuan)}
                 </p>
@@ -63,12 +68,21 @@ export default function DetailTransaksi({ transaksi, isOpen, onClose }) {
             <span className="font-medium text-gray-800">{transaksi.totalQtyItems} pcs</span>
           </div>
 
-          <div className="flex justify-between font-bold text-sm text-gray-900 border-t pt-2">
-            <span>Total Belanja:</span>
-            <span className="text-green-600">{formatRupiah(transaksi.totalBayar)}</span>
-          </div>
+          {transaksi.tipeTransaksi === 'RETUR_TUKAR' ? (
+            <div className="flex justify-between font-bold text-sm text-gray-900 border-t pt-2">
+              <span>{transaksi.arusKasKeluar > 0 ? 'Refund kas keluar:' : 'Pembayaran kekurangan:'}</span>
+              <span className={transaksi.arusKasKeluar > 0 ? 'text-orange-600' : 'text-green-600'}>
+                {formatRupiah(transaksi.arusKasKeluar || transaksi.arusKasMasuk + transaksi.arusKasMasukNonTunai)}
+              </span>
+            </div>
+          ) : (
+            <div className="flex justify-between font-bold text-sm text-gray-900 border-t pt-2">
+              <span>Total Belanja:</span>
+              <span className="text-green-600">{formatRupiah(transaksi.totalBayar)}</span>
+            </div>
+          )}
 
-          {transaksi.metodePembayaran === 'CASH' && (
+          {transaksi.metodePembayaran === 'CASH' && transaksi.tipeTransaksi !== 'RETUR_TUKAR' && (
             <>
               <div className="flex justify-between text-gray-600">
                 <span>Uang Diterima:</span>

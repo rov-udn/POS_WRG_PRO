@@ -8,6 +8,7 @@ import {
   EVENT_PRODUK_DIPERBARUI,
   hitungRasioSatuanKeBasisSaatIni
 } from '../../produk/utils/produkUtils';
+import { beriTahuMenuNotificationsDiperbarui } from '../../../utils/menuNotifications';
 
 const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
 const KUNCI_STORAGE_DRAF_BELANJA = 'pos_warung_draf_belanja';
@@ -70,6 +71,7 @@ export function useBelanjaAgen() {
   useEffect(() => {
     try {
       localStorage.setItem(KUNCI_STORAGE_DRAF_BELANJA, JSON.stringify(daftarDraf));
+      beriTahuMenuNotificationsDiperbarui();
     } catch (e) {
       console.error("Gagal menyimpan draf belanja:", e);
     }
@@ -342,6 +344,7 @@ export function useBelanjaAgen() {
             items: itemValidGudang
           };
           localStorage.setItem(KUNCI_STORAGE_ANTREAN, JSON.stringify([...antreanLama, kirimanGudang]));
+          beriTahuMenuNotificationsDiperbarui();
         }
         beriTahuProdukDiperbarui();
       }

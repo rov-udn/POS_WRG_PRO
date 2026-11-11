@@ -8,6 +8,7 @@ import PanduanShortcutKeyboard from './components/PanduanShortcutKeyboard';
 import StrukNotaForm from './components/StrukNotaForm';
 import TentangAplikasi from './components/TentangAplikasi';
 import TambahKaryawanForm from './components/TambahKaryawanForm';
+import PengaturanQuickButton from './components/PengaturanQuickButton';
 
 const MENU_SETTING = [
   {
@@ -33,6 +34,12 @@ const MENU_SETTING = [
     judul: 'Perangkat Kasir',
     deskripsi: 'Atur printer thermal, lebar kertas, dan scanner.',
     ikon: '🖨️'
+  },
+  {
+    id: 'quickButtons',
+    judul: 'Tombol Cepat Eceran',
+    deskripsi: 'Kelola nama, harga, dan target tombol cepat pada halaman Kasir.',
+    ikon: '⚡'
   },
   {
     id: 'shortcut',
@@ -83,6 +90,9 @@ function renderSubMenu(activeMenu, profil, roleAktif) {
       return <PajakLayananForm />;
     case 'perangkat':
       return <PerangkatKasirForm />;
+    case 'quickButtons':
+      if (roleAktif !== 'admin') return null;
+      return <PengaturanQuickButton />;
     case 'shortcut':
       return <PanduanShortcutKeyboard />;
     case 'keamanan':
@@ -175,7 +185,7 @@ export default function SettingPage({
             <p className="mt-1 text-sm text-gray-500">{menuAktif.deskripsi}</p>
           </div>
           {renderSubMenu(activeMenu, profil, roleAktif)}
-          {activeMenu !== 'backup' && activeMenu !== 'keamanan' && activeMenu !== 'karyawan' && activeMenu !== 'shortcut' && activeMenu !== 'tentang' && (
+          {activeMenu !== 'backup' && activeMenu !== 'keamanan' && activeMenu !== 'karyawan' && activeMenu !== 'shortcut' && activeMenu !== 'tentang' && activeMenu !== 'quickButtons' && (
             <p role="status" className="text-xs text-gray-500">
               Perubahan disimpan otomatis.
             </p>

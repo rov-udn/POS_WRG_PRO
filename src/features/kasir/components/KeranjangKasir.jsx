@@ -80,7 +80,7 @@ export default function KeranjangKasir({
         ) : (
           keranjang.map((item) => (
             <div
-              key={`${item.idProduk}-${item.idSatuan}`}
+              key={`${item.idProduk}-${item.idSatuan}-${item.idUnpackBaris || item.idUnpack || 'master'}`}
               className="flex flex-col p-2.5 bg-gray-50 hover:bg-gray-100/80 rounded-xl border border-gray-200/70 transition-colors"
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -94,7 +94,12 @@ export default function KeranjangKasir({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onHapusItem(item.idProduk, item.idSatuan)}
+                  onClick={() => onHapusItem(
+                    item.idProduk,
+                    item.idSatuan,
+                    item.idUnpack,
+                    item.idUnpackBaris
+                  )}
                   className="text-gray-400 hover:text-red-600 font-bold text-xs p-1"
                 >
                   ✕
@@ -102,27 +107,33 @@ export default function KeranjangKasir({
               </div>
 
               <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-gray-200/50">
-                <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-lg p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onUbahQty(item.idProduk, item.idSatuan, item.qty - 1)}
-                    className="w-6 h-6 flex items-center justify-center bg-gray-100 text-gray-700 font-bold rounded text-xs"
-                  >
-                    -
-                  </button>
-                  <QuantityInput
-                    value={item.qty}
-                    onChange={(qty) => onUbahQty(item.idProduk, item.idSatuan, qty)}
-                    className="w-12 text-center font-bold text-xs text-gray-800 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onUbahQty(item.idProduk, item.idSatuan, item.qty + 1)}
-                    className="w-6 h-6 flex items-center justify-center bg-blue-50 text-blue-700 font-bold rounded text-xs"
-                  >
-                    +
-                  </button>
-                </div>
+                {item.isUnpackItem ? (
+                  <span className="px-2 text-xs font-semibold text-gray-600">
+                    {item.qty} pcs eceran
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-lg p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onUbahQty(item.idProduk, item.idSatuan, item.qty - 1, item.idUnpack)}
+                      className="w-6 h-6 flex items-center justify-center bg-gray-100 text-gray-700 font-bold rounded text-xs"
+                    >
+                      -
+                    </button>
+                    <QuantityInput
+                      value={item.qty}
+                      onChange={(qty) => onUbahQty(item.idProduk, item.idSatuan, qty, item.idUnpack)}
+                      className="w-12 text-center font-bold text-xs text-gray-800 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onUbahQty(item.idProduk, item.idSatuan, item.qty + 1, item.idUnpack)}
+                      className="w-6 h-6 flex items-center justify-center bg-blue-50 text-blue-700 font-bold rounded text-xs"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
 
                 <div className="text-right">
                   <span className="text-xs font-extrabold text-blue-700">

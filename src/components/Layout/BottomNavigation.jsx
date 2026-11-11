@@ -1,4 +1,5 @@
 import React from 'react';
+import MenuBadge from '../ui/MenuBadge';
 
 export default function BottomNavigation({
   daftarMenu,
@@ -17,7 +18,15 @@ export default function BottomNavigation({
               isAktif ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            <span className="text-xl leading-none">{menu.ikon}</span>
+            <span className="relative text-xl leading-none">
+              {menu.ikon}
+              <MenuBadge
+                count={menu.badgeCount}
+                dot={menu.badgeDot}
+                label={menu.badgeLabel}
+                compact
+              />
+            </span>
             <span className={`mt-1 text-[9px] sm:text-[10px] ${isAktif ? 'font-bold' : 'font-normal'}`}>
               {menu.label}
             </span>

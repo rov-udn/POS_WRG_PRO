@@ -8,15 +8,28 @@ import {
   EVENT_PRODUK_DIPERBARUI,
   hitungRasioSatuanKeBasisSaatIni
 } from '../../produk/utils/produkUtils';
+import { beriTahuMenuNotificationsDiperbarui } from '../../../utils/menuNotifications';
 
 const KUNCI_STORAGE_RESTOCK = 'pos_warung_restock_logs';
 const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
 const KUNCI_STORAGE_ANTREAN = 'pos_warung_antrean_restock';
+const KUNCI_STORAGE_KERANJANG_RESTOCK = 'pos_warung_keranjang_restock';
+
+function ambilKeranjangRestockTersimpan() {
+  try {
+    const data = localStorage.getItem(KUNCI_STORAGE_KERANJANG_RESTOCK);
+    const keranjang = data ? JSON.parse(data) : [];
+    return Array.isArray(keranjang) ? keranjang : [];
+  } catch (error) {
+    console.error('Gagal memuat keranjang restock tersimpan:', error);
+    return [];
+  }
+}
 
 export function useGudang({ onAntreanRestockDiterima } = {}) {
   const { fitur } = useAppMode();
   const [tabAktif, setTabAktif] = useState('stok'); // 'stok', 'riwayat'
-  const [keranjangRestock, setKeranjangRestock] = useState([]); // State keranjang restock massal
+  const [keranjangRestock, setKeranjangRestock] = useState(ambilKeranjangRestockTersimpan);
   const antreanGagalTerakhir = useRef('');
   
   // Data produk dari localStorage
@@ -72,6 +85,15 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
       console.error("Gagal menyimpan riwayat restock", e);
     }
   }, [riwayatRestock]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(KUNCI_STORAGE_KERANJANG_RESTOCK, JSON.stringify(keranjangRestock));
+      beriTahuMenuNotificationsDiperbarui();
+    } catch (error) {
+      console.error('Gagal menyimpan keranjang restock:', error);
+    }
+  }, [keranjangRestock]);
 
   // Tambahkan item ke keranjang restock
   const tambahKeKeranjangRestock = (produk) => {
@@ -213,6 +235,7 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
             }
           } else {
             localStorage.removeItem(KUNCI_STORAGE_ANTREAN);
+            beriTahuMenuNotificationsDiperbarui();
             antreanGagalTerakhir.current = '';
           }
           

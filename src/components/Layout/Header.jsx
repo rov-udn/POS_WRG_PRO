@@ -6,7 +6,9 @@ export default function Header({
   namaToko,
   namaPengguna,
   labelRole,
-  onKeluar
+  onKeluar,
+  onTutupShift,
+  isKasir
 }) {
   const { isSimpleMode, ubahMode } = useAppMode();
 
@@ -61,6 +63,17 @@ export default function Header({
         <span className={`text-[10px] font-medium sm:text-xs ${!isSimpleMode ? 'text-blue-700' : 'text-gray-500'}`}>
           Full
         </span>
+        {isKasir && (
+          <button
+            type="button"
+            onClick={onTutupShift}
+            aria-label="Tutup Shift"
+            title="Tutup Shift"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-base text-red-700 transition hover:bg-red-100 md:hidden"
+          >
+            ⏹
+          </button>
+        )}
         <span className="hidden rounded-full bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700 sm:inline-flex sm:px-2.5 sm:text-xs">
           Siap Offline
         </span>

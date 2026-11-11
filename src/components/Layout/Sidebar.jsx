@@ -1,4 +1,5 @@
 import React from 'react';
+import MenuBadge from '../ui/MenuBadge';
 
 export default function Sidebar({
   daftarMenu,
@@ -7,7 +8,9 @@ export default function Sidebar({
   namaToko,
   namaPengguna,
   labelRole,
-  onKeluar
+  onKeluar,
+  onTutupShift,
+  isKasir
 }) {
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white border-r min-h-screen p-4 space-y-6">
@@ -32,7 +35,14 @@ export default function Sidebar({
               }`}
             >
               <span className="text-lg">{menu.ikon}</span>
-              <span>{menu.label}</span>
+              <span className="flex-1">{menu.label}</span>
+              <span className="relative h-6 w-6 shrink-0">
+                <MenuBadge
+                  count={menu.badgeCount}
+                  dot={menu.badgeDot}
+                  label={menu.badgeLabel}
+                />
+              </span>
             </button>
           );
         })}
@@ -44,6 +54,15 @@ export default function Sidebar({
             {labelRole}
           </span>
         </div>
+        {isKasir && (
+          <button
+            type="button"
+            onClick={onTutupShift}
+            className="w-full rounded-lg bg-red-50 px-3 py-2 text-left text-sm font-semibold text-red-700 transition hover:bg-red-100"
+          >
+            ⏹️ Tutup Shift
+          </button>
+        )}
         <button
           type="button"
           onClick={onKeluar}

@@ -5,7 +5,7 @@ import KeranjangRestockModal from './components/KeranjangRestockModal';
 import PenyesuaianStokModal from './components/PenyesuaianStokModal';
 import RiwayatRestock from './components/RiwayatRestock';
 import { useAppMode } from '../../hooks/useAppMode';
-
+import UnpackLogWidget from './components/UnpackLogWidget'; // Sesuaikan path folder jika diperlukan
 export default function GudangPage({ role }) {
   const isAdmin = role === 'admin';
   const { fitur } = useAppMode();
@@ -49,6 +49,10 @@ export default function GudangPage({ role }) {
             📜 Riwayat Log Gudang
           </button>
         )}
+      </div>
+
+      <div className="my-4">
+        <UnpackLogWidget />
       </div>
 
       {/* Konten Tab */}
