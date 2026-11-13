@@ -10,7 +10,7 @@ export default function Header({
   onTutupShift,
   isKasir
 }) {
-  const { isSimpleMode, ubahMode } = useAppMode();
+  const { isSimpleMode, ubahMode, sedangMengubahMode } = useAppMode();
   const [isOnline, setIsOnline] = useState(
     () => typeof navigator !== 'undefined' && navigator.onLine
   );
@@ -64,16 +64,25 @@ export default function Header({
           role="switch"
           aria-checked={!isSimpleMode}
           aria-label="Mode aplikasi"
+          aria-busy={sedangMengubahMode}
+          disabled={sedangMengubahMode}
           onClick={() => ubahMode(isSimpleMode ? 'full' : 'simple')}
           className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
             isSimpleMode ? 'bg-gray-300' : 'bg-blue-600'
           }`}
         >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              isSimpleMode ? 'translate-x-1' : 'translate-x-6'
-            }`}
-          />
+          {sedangMengubahMode ? (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 m-auto h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+            />
+          ) : (
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isSimpleMode ? 'translate-x-1' : 'translate-x-6'
+              }`}
+            />
+          )}
         </button>
         <span className={`text-[10px] font-medium sm:text-xs ${!isSimpleMode ? 'text-blue-700' : 'text-gray-500'}`}>
           Full

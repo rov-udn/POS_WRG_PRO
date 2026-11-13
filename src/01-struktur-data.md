@@ -72,6 +72,45 @@ export const SINGLE_PRODUCT_SCHEMA = {
 };
 ```
 
+# Dokumentasi Struktur Data & Skema - POS Warung Pro
+
+Dokumentasi ini merangkum seluruh skema data yang aktif digunakan dalam sistem basis data (Firestore) maupun penyimpanan lokal (`localStorage`).
+
+## 1. Pengguna & Autentikasi (Koleksi Firestore: `users`)
+Menyimpan profil akun pengguna dengan sistem 3 level role.
+- **`uid`** (String): ID unik pengguna dari Firebase Auth.
+- **`email`** (String): Alamat email pengguna.
+- **`nama`** (String): Nama lengkap pengguna/karyawan.
+- **`role`** (String): Level hak akses (`super_admin`, `admin`, `karyawan`).
+- **`store_id`** (String): Identifikasi cabang/toko tempat pengguna bertugas.
+- **`status`** (String): Status keaktifan akun (`active`, `pending`).
+
+## 2. Katalog Produk & Varian (Firestore / LocalStorage)
+Ekstensi schema produk mendukung manajemen satuan ganda dan varian produk.
+- **`punyaVarian`** (Boolean): Penanda apakah produk memiliki varian khusus.
+- **`varian`** (Array of Strings): Daftar pilihan varian produk (misal: warna, ukuran, rasa).
+- **`snapshotProduk`** (Object): Rekaman data produk yang disematkan ke dalam transaksi/keranjang (berisi `namaProduk`, `satuanDasarId`, `listSatuan` termasuk harga, rasio, dan barcode).
+
+## 3. Kulakan & Draf Belanja Agen (`useBelanjaAgen.js`)
+- **Draf Belanja**: Menyimpan data sementara kulakan (`idDraf`, `tanggal`, `namaAgen`, `items`, `totalEstimasiModal`).
+- **Item Belanja**: Memuat properti tambahan seperti `kategori`, `qtyReal`, `isKosongDiAgen`, dan `snapshotProduk`.
+- **Arsip Belanja**: Menambahkan status penyelesaian (`statusSelesai`, `tanggalSelesai`).
+
+## 4. Barang Eceran & Log Kerugian (`active_unpack_items` & `shrinkage_logs`)
+- **Barang Eceran Aktif**: Menyimpan kemasan grosir yang dibuka untuk eceran (`id`, `idProduk`, `namaProdukGrosir`, `idTombolCepat`, `namaSatuanEceran`, `hargaModalEceran`, `sisaQtyEceran`, `totalSisaPcs`, `tanggalBuka`).
+- **Log Kerugian/Shrinkage**: Mencatat barang rusak/susut (`idUnpack`, `qtyPcs`, `alasan`, `hargaModalEceran`, `totalKerugian`).
+
+## 5. Transaksi & Retur Kasir (`TRANSACTION_SCHEMA`)
+- **Transaksi Standar**: Memuat rincian item, total bayar, metode pembayaran, kasir, dan waktu.
+- **Retur/Tukar (`RETUR_TUKAR`)**: Memuat arah item (`MASUK`/`KELUAR`), serta arus kas (`arusKasMasuk`, `arusKasMasukNonTunai`, `arusKasKeluar`).
+- **Draf Kasir**: Menyimpan transaksi tertahan (`idDraf`, `waktu`, `catatan`, `items`).
+
+## 6. Riwayat Retur & Tukar (Firestore: `retur_logs`)
+- **Identitas & waktu**: `store_id`, `timestamp` (ISO), `createdAt` (waktu server Firestore), dan `kasir`.
+- **Barang**: `barangKembali` dan `barangPengganti` berupa array item dengan `idProduk`, `namaProduk`, `idSatuan`, `namaSatuan`, `qty`, `hargaSatuan`, dan `subtotal`.
+- **Ringkasan keuangan**: `totalKembali`, `totalPengganti`, `selisih`, `statusKeuangan` (`BAYAR_TAMBAHAN`, `REFUND_KAS`, atau `IMPAS`), `metodePembayaran`, dan `jumlahDiterima`.
+- **Isolasi data**: Riwayat dibaca dengan filter `store_id` toko aktif dan diurutkan berdasarkan `createdAt` terbaru.
+
 ## Penjelasan Field
 
 ### Impor data produk lama

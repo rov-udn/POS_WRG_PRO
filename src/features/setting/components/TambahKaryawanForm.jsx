@@ -15,6 +15,11 @@ const PESAN_ERROR_PENDAFTARAN = {
   'unavailable': 'Layanan sedang tidak tersedia. Periksa koneksi lalu coba lagi.'
 };
 
+const LABEL_STATUS_AKUN = {
+  active: 'Aktif',
+  pending: 'Menunggu persetujuan'
+};
+
 export default function TambahKaryawanForm({ storeId, role }) {
   const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
@@ -28,15 +33,9 @@ export default function TambahKaryawanForm({ storeId, role }) {
     akunDiproses,
     pesanError: pesanErrorDaftar,
     pesanSukses: pesanSuksesDaftar,
-    daftarPendaftaranPending,
-    sedangMemuatPendaftaran,
-    pesanErrorPendaftaran,
-    pesanSuksesPendaftaran,
     muatAkun,
     ubahRole,
-    hapusAkses,
-    setujuiPendaftaran,
-    hapusPendaftaranPending
+    hapusAkses
   } = useManajemenKaryawan(storeId, role);
 
   const tanganiPendaftaran = async (event) => {
@@ -60,86 +59,6 @@ export default function TambahKaryawanForm({ storeId, role }) {
       );
     }
   };
-
-  if (role === 'super_admin') {
-    return (
-      <SectionCard title="Persetujuan pendaftaran akun">
-        <p className="text-sm text-gray-600">
-          Setujui akun agar dapat masuk ke aplikasi, atau hapus profil pendaftaran yang tidak dikenal.
-        </p>
-
-        {pesanErrorPendaftaran && (
-          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {pesanErrorPendaftaran}
-          </p>
-        )}
-        {pesanSuksesPendaftaran && (
-          <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-            {pesanSuksesPendaftaran}
-          </p>
-        )}
-
-        {sedangMemuatPendaftaran ? (
-          <p role="status" className="text-sm text-gray-500">Memuat pendaftaran pending...</p>
-        ) : pesanErrorPendaftaran ? null : daftarPendaftaranPending.length === 0 ? (
-          <p className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
-            Tidak ada pendaftaran yang menunggu persetujuan.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-left text-sm">
-              <thead className="border-b border-gray-200 text-xs uppercase text-gray-500">
-                <tr>
-                  <th scope="col" className="px-3 py-2">Nama</th>
-                  <th scope="col" className="px-3 py-2">Email</th>
-                  <th scope="col" className="px-3 py-2">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {daftarPendaftaranPending.map((akun) => (
-                  <tr key={akun.uid}>
-                    <td className="px-3 py-3 font-medium text-gray-800">
-                      {akun.nama || '—'}
-                    </td>
-                    <td className="px-3 py-3 text-gray-600">{akun.email || '—'}</td>
-                    <td className="space-x-2 px-3 py-3">
-                      <button
-                        type="button"
-                        disabled={akunDiproses === akun.uid}
-                        onClick={() => setujuiPendaftaran(akun)}
-                        className="rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-60"
-                      >
-                        {akunDiproses === akun.uid ? 'Memproses...' : 'Setujui'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={akunDiproses === akun.uid}
-                        onClick={() => {
-                          const identitas = akun.nama || akun.email || 'akun ini';
-                          if (window.confirm(
-                            `Hapus profil pendaftaran ${identitas}? Kredensial Firebase Authentication tidak dihapus dari sini.`
-                          )) {
-                            hapusPendaftaranPending(akun);
-                          }
-                        }}
-                        className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
-                      >
-                        Tolak / Hapus
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="text-xs leading-5 text-gray-500">
-          Tindakan hapus menghapus profil Firestore. Penghapusan kredensial Firebase Authentication
-          memerlukan backend tepercaya dan tidak dilakukan oleh aplikasi klien ini.
-        </p>
-      </SectionCard>
-    );
-  }
 
   return (
     <div className="space-y-5">
@@ -214,10 +133,20 @@ export default function TambahKaryawanForm({ storeId, role }) {
       </SectionCard>
 
       <SectionCard title="Akun toko">
-        <p className="text-sm text-gray-600">
-          Kelola role akun yang terhubung ke toko ini. Akun admin utama tidak ditampilkan
-          dan tidak dapat dihapus dari daftar ini.
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-600">
+            Daftar akun yang terhubung ke toko ini. Akun admin utama tidak ditampilkan
+            dan tidak dapat dikelola dari daftar ini.
+          </p>
+          <button
+            type="button"
+            disabled={sedangMemuatDaftar}
+            onClick={() => muatAkun({ clearError: true })}
+            className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sedangMemuatDaftar ? 'Memuat...' : 'Muat ulang'}
+          </button>
+        </div>
 
         {pesanErrorDaftar && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -231,19 +160,30 @@ export default function TambahKaryawanForm({ storeId, role }) {
         )}
 
         {sedangMemuatDaftar ? (
-          <p role="status" className="text-sm text-gray-500">Memuat daftar akun...</p>
-        ) : pesanErrorDaftar ? null : daftarAkun.length === 0 ? (
-          <p className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
-            Belum ada akun tambahan untuk toko ini.
+          <div role="status" className="flex items-center gap-3 py-8 text-sm text-gray-600">
+            <span
+              aria-hidden="true"
+              className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700"
+            />
+            Memuat daftar akun...
+          </div>
+        ) : pesanErrorDaftar ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            Daftar akun belum dapat ditampilkan. Periksa koneksi atau izin akses, lalu coba muat ulang.
+          </div>
+        ) : daftarAkun.length === 0 ? (
+          <p className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+            Belum ada akun tambahan yang terhubung ke toko ini.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-sm">
-              <thead className="border-b border-gray-200 text-xs uppercase text-gray-500">
+              <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
                   <th scope="col" className="px-3 py-2">Nama</th>
                   <th scope="col" className="px-3 py-2">Email</th>
                   <th scope="col" className="px-3 py-2">Role</th>
+                  <th scope="col" className="px-3 py-2">Status akun</th>
                   <th scope="col" className="px-3 py-2">Aksi</th>
                 </tr>
               </thead>
@@ -265,6 +205,17 @@ export default function TambahKaryawanForm({ storeId, role }) {
                         <option value="karyawan">Karyawan</option>
                         <option value="admin">Admin</option>
                       </select>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        akun.status === 'active'
+                          ? 'bg-green-50 text-green-700'
+                          : akun.status === 'pending'
+                            ? 'bg-amber-50 text-amber-800'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {LABEL_STATUS_AKUN[akun.status] || akun.status || 'Tidak diketahui'}
+                      </span>
                     </td>
                     <td className="px-3 py-3">
                       <button

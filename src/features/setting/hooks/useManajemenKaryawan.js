@@ -11,20 +11,26 @@ import {
   where
 } from 'firebase/firestore';
 
-const pastikanAdminToko = async (storeId) => {
+const pastikanPengelolaToko = async (storeId) => {
   const penggunaAktif = auth.currentUser;
-  if (!penggunaAktif || !storeId) {
-    throw new Error('Sesi admin tidak tersedia. Silakan masuk kembali.');
+  if (!penggunaAktif) {
+    throw new Error('Sesi pengelola toko tidak tersedia. Silakan masuk kembali.');
   }
 
-  const snapshotAdmin = await getDocFromServer(doc(db, 'users', penggunaAktif.uid));
-  const profilAdmin = snapshotAdmin.exists() ? snapshotAdmin.data() : null;
+  const snapshotPengelola = await getDocFromServer(doc(db, 'users', penggunaAktif.uid));
+  const profilPengelola = snapshotPengelola.exists() ? snapshotPengelola.data() : null;
+  const storeIdAktif = String(profilPengelola?.store_id || '').trim();
 
-  if (profilAdmin?.role !== 'admin' || profilAdmin.store_id !== storeId) {
-    throw new Error('Hanya admin toko yang dapat mengelola akun.');
+  if (
+    !['admin', 'super_admin'].includes(profilPengelola?.role) ||
+    profilPengelola.status !== 'active' ||
+    !storeIdAktif ||
+    (storeId && storeId !== storeIdAktif)
+  ) {
+    throw new Error('Hanya admin atau Super Admin pada toko terkait yang dapat mengelola akun.');
   }
 
-  return penggunaAktif.uid;
+  return { uid: penggunaAktif.uid, storeId: storeIdAktif };
 };
 
 const pastikanSuperAdmin = async () => {
@@ -34,7 +40,11 @@ const pastikanSuperAdmin = async () => {
   }
 
   const snapshotAdmin = await getDocFromServer(doc(db, 'users', penggunaAktif.uid));
-  if (!snapshotAdmin.exists() || snapshotAdmin.data().role !== 'super_admin') {
+  if (
+    !snapshotAdmin.exists() ||
+    snapshotAdmin.data().role !== 'super_admin' ||
+    snapshotAdmin.data().status !== 'active'
+  ) {
     throw new Error('Hanya Super Admin yang dapat memproses pendaftaran akun.');
   }
 
@@ -65,14 +75,15 @@ export default function useManajemenKaryawan(storeId, roleAktif) {
 
   const muatAkun = useCallback(async ({ clearError = false } = {}) => {
     if (clearError) setPesanError('');
+    setSedangMemuat(true);
     try {
-      const uidAdmin = await pastikanAdminToko(storeId);
+      const { uid: uidPengelola, storeId: storeIdAktif } = await pastikanPengelolaToko(storeId);
       const hasil = await getDocsFromServer(
-        query(collection(db, 'users'), where('store_id', '==', storeId))
+        query(collection(db, 'users'), where('store_id', '==', storeIdAktif))
       );
       setDaftarAkun(
         hasil.docs
-          .filter((dokumen) => dokumen.id !== uidAdmin && dokumen.id !== storeId)
+          .filter((dokumen) => dokumen.id !== uidPengelola && dokumen.id !== storeIdAktif)
           .map((dokumen) => ({
             uid: dokumen.id,
             ...dokumen.data(),
@@ -88,6 +99,7 @@ export default function useManajemenKaryawan(storeId, roleAktif) {
   }, [storeId]);
 
   const muatPendaftaranPending = useCallback(async () => {
+    setSedangMemuatPendaftaran(true);
     setPesanErrorPendaftaran('');
     try {
       await pastikanSuperAdmin();
@@ -111,7 +123,7 @@ export default function useManajemenKaryawan(storeId, roleAktif) {
   }, []);
 
   useEffect(() => {
-    if (roleAktif === 'super_admin') {
+    if (roleAktif === 'super_admin' && !storeId) {
       // Start the server-backed pending-account fetch.
       // eslint-disable-next-line react/set-state-in-effect
       muatPendaftaranPending();
@@ -120,7 +132,7 @@ export default function useManajemenKaryawan(storeId, roleAktif) {
     // This effect starts the initial asynchronous Firestore account fetch.
     // eslint-disable-next-line react/set-state-in-effect
     muatAkun();
-  }, [muatAkun, muatPendaftaranPending, roleAktif]);
+  }, [muatAkun, muatPendaftaranPending, roleAktif, storeId]);
 
   const ubahRole = async (akun, roleBaru) => {
     if (!['admin', 'karyawan'].includes(roleBaru) || roleBaru === akun.role) return;
@@ -129,8 +141,8 @@ export default function useManajemenKaryawan(storeId, roleAktif) {
     setPesanError('');
     setPesanSukses('');
     try {
-      const uidAdmin = await pastikanAdminToko(storeId);
-      await pastikanAkunToko(akun.uid, storeId, uidAdmin);
+      const { uid: uidPengelola, storeId: storeIdAktif } = await pastikanPengelolaToko(storeId);
+      await pastikanAkunToko(akun.uid, storeIdAktif, uidPengelola);
       await updateDoc(doc(db, 'users', akun.uid), { role: roleBaru });
       setDaftarAkun((sebelumnya) => sebelumnya.map((item) => (
         item.uid === akun.uid ? { ...item, role: roleBaru } : item
@@ -150,8 +162,8 @@ export default function useManajemenKaryawan(storeId, roleAktif) {
     setPesanError('');
     setPesanSukses('');
     try {
-      const uidAdmin = await pastikanAdminToko(storeId);
-      await pastikanAkunToko(akun.uid, storeId, uidAdmin);
+      const { uid: uidPengelola, storeId: storeIdAktif } = await pastikanPengelolaToko(storeId);
+      await pastikanAkunToko(akun.uid, storeIdAktif, uidPengelola);
       await deleteDoc(doc(db, 'users', akun.uid));
       setDaftarAkun((sebelumnya) => sebelumnya.filter((item) => item.uid !== akun.uid));
       setPesanSukses(
