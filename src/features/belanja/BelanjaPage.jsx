@@ -5,8 +5,9 @@ import KeranjangBelanja from './components/KeranjangBelanja';
 import DrafBelanjaModal from './components/DrafBelanjaModal';
 import RiwayatKulakanTab from './components/RiwayatKulakanTab';
 import { useSettings } from '../setting/hooks/useSettings';
+import FilterKategori from '../../components/ui/FilterKategori';
 
-export default function BelanjaPage() {
+export default function BelanjaPage({ storeId }) {
   const [tabAktif, setTabAktif] = useState('BELANJA'); // 'BELANJA' atau 'RIWAYAT'
 
   const {
@@ -28,9 +29,10 @@ export default function BelanjaPage() {
     ubahQtyRealDraf,
     prosesSelesaiBelanja,
     hapusDraf
-  } = useBelanjaAgen();
+  } = useBelanjaAgen(storeId);
 
   const [kataKunci, setKataKunci] = useState('');
+  const [kategoriAktif, setKategoriAktif] = useState('');
   const [tampilModalDraf, setTampilModalDraf] = useState(false);
   const { settings } = useSettings();
 
@@ -68,9 +70,25 @@ export default function BelanjaPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Kolom Kiri / Tengah: Daftar Produk Belanja */}
           <div className="lg:col-span-2">
+            <div className="mb-4 space-y-2">
+              <input
+                type="search"
+                aria-label="Cari produk belanja"
+                value={kataKunci}
+                onChange={(event) => setKataKunci(event.target.value)}
+                placeholder="Cari nama produk atau barcode..."
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+              />
+              <FilterKategori
+                daftarProduk={daftarProduk}
+                kategoriAktif={kategoriAktif}
+                onUbahKategori={setKategoriAktif}
+              />
+            </div>
             <DaftarProdukBelanja
               daftarProduk={daftarProduk}
               kataKunci={kataKunci}
+              kategoriAktif={kategoriAktif}
               onPilihProduk={tambahKeKeranjang}
             />
           </div>

@@ -9,15 +9,17 @@ import {
   hitungRasioSatuanKeBasisSaatIni
 } from '../../produk/utils/produkUtils';
 import { beriTahuMenuNotificationsDiperbarui } from '../../../utils/menuNotifications';
+import { buatKunciStorageProduk } from '../../produk/utils/produkStorage';
 
-const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
 const KUNCI_STORAGE_DRAF_BELANJA = 'pos_warung_draf_belanja';
 const KUNCI_STORAGE_RIWAYAT_BELANJA = 'pos_warung_riwayat_belanja_agen'; // Key baru untuk arsip riwayat kulakan
 
-export function useBelanjaAgen() {
+export function useBelanjaAgen(storeId) {
+  const KUNCI_STORAGE_PRODUK = buatKunciStorageProduk(storeId);
   const { fitur } = useAppMode();
   const [daftarProduk, setDaftarProduk] = useState(() => {
     try {
+      if (!KUNCI_STORAGE_PRODUK) return [];
       const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
       return data ? JSON.parse(data) : [];
     } catch (e) {
@@ -50,6 +52,7 @@ export function useBelanjaAgen() {
   useEffect(() => {
     const muatProdukTerbaru = () => {
       try {
+        if (!KUNCI_STORAGE_PRODUK) return;
         const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
         setDaftarProduk(data ? JSON.parse(data) : []);
       } catch (error) {
@@ -66,7 +69,7 @@ export function useBelanjaAgen() {
       window.removeEventListener('storage', tanganiStorage);
       window.removeEventListener(EVENT_PRODUK_DIPERBARUI, muatProdukTerbaru);
     };
-  }, []);
+  }, [KUNCI_STORAGE_PRODUK]);
 
   useEffect(() => {
     try {
@@ -257,6 +260,10 @@ export function useBelanjaAgen() {
 
   // FUNGSI GANDA: ARSIP RIWAYAT & KIRIM KE ANTREAN RESTOCK GUDANG
   const prosesSelesaiBelanja = (draf) => {
+    if (!KUNCI_STORAGE_PRODUK) {
+      alert('ID toko aktif tidak tersedia. Belanja belum dapat diproses ke gudang.');
+      return false;
+    }
     try {
       const produkTerkini = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');
       setDaftarProduk(produkTerkini);

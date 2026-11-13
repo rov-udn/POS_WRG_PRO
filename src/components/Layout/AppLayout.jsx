@@ -7,6 +7,7 @@ import useMenuNotifications from '../../hooks/useMenuNotifications';
 import { useSettings } from '../../features/setting/hooks/useSettings';
 import EndShiftModal from '../../features/kasir/components/EndShiftModal';
 import { mulaiShiftJikaBelumAda, tutupShift } from '../../features/laporan/utils/shiftStorage';
+import { sinkronkanProdukPending } from '../../lib/services/produkSyncService';
 
 const DAFTAR_MENU = [
   { id: 'produk', label: 'Produk', ikon: '📦' },
@@ -33,7 +34,7 @@ export default function AppLayout({
   const menuSaatIni = daftarMenu.find((menu) => menu.id === menuAktif);
   const judulHalaman = menuSaatIni ? menuSaatIni.label : 'POS Warung';
   const { settings } = useSettings();
-  const notifikasi = useMenuNotifications();
+  const notifikasi = useMenuNotifications(profil.store_id);
   const daftarMenuDenganNotifikasi = daftarMenu.map((menu) => {
     if (menu.id === 'belanja') {
       return {
@@ -73,6 +74,21 @@ export default function AppLayout({
       ? 'Admin'
       : 'Karyawan';
   const isKasir = profil.role === 'karyawan';
+
+  useEffect(() => {
+    if (!profil?.store_id) return undefined;
+
+    const cobaSinkronkanProduk = () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      sinkronkanProdukPending(profil.store_id).catch((error) => {
+        console.error('Gagal melanjutkan sinkronisasi produk tertunda.', error);
+      });
+    };
+
+    window.addEventListener('online', cobaSinkronkanProduk);
+    cobaSinkronkanProduk();
+    return () => window.removeEventListener('online', cobaSinkronkanProduk);
+  }, [profil?.store_id]);
 
   useEffect(() => {
     if (!isKasir || !pengguna?.uid) return;

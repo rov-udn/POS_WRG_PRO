@@ -91,7 +91,7 @@ function renderSubMenu(activeMenu, profil, roleAktif) {
     case 'perangkat':
       return <PerangkatKasirForm />;
     case 'quickButtons':
-      if (roleAktif !== 'admin') return null;
+      if (!['admin', 'super_admin'].includes(roleAktif)) return null;
       return <PengaturanQuickButton />;
     case 'shortcut':
       return <PanduanShortcutKeyboard />;
@@ -111,7 +111,7 @@ function renderSubMenu(activeMenu, profil, roleAktif) {
       }
       return <TambahKaryawanForm storeId={profil.store_id} role={roleAktif} />;
     case 'backup':
-      return <BackupRestoreSection />;
+      return <BackupRestoreSection storeId={profil.store_id} />;
     case 'tentang':
       return <TentangAplikasi />;
     default:
@@ -128,11 +128,9 @@ export default function SettingPage({
   const [activeMenu, setActiveMenu] = useState(null);
   const roleAktif = String(role || profil?.role || '').trim().toLowerCase();
   const daftarMenu = MENU_SETTING.filter((menu) => (
-    roleAktif === 'admin'
+    roleAktif === 'admin' || roleAktif === 'super_admin'
       ? true
-      : roleAktif === 'super_admin'
-        ? menu.id === 'karyawan'
-        : MENU_SETTING_KARYAWAN.has(menu.id)
+      : MENU_SETTING_KARYAWAN.has(menu.id)
   ));
   const menuAktif = daftarMenu.find((menu) => menu.id === activeMenu);
 

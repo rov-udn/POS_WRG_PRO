@@ -4,15 +4,18 @@ import CariProduk from './components/CariProduk';
 import ProdukDetail from './components/ProdukDetail';
 import ProdukForm from './components/ProdukForm';
 import ImportProdukJson from './components/ImportProdukJson';
+import FilterKategori from '../../components/ui/FilterKategori';
 import { filterProdukKurangLengkap, filterProdukRugi } from './utils/cekRugi';
 
-export default function ProdukPage() {
+export default function ProdukPage({ storeId }) {
   const daftarRef = useRef(null);
   const detailRef = useRef(null);
   const [filterAktif, setFilterAktif] = useState(null);
+  const [kategoriAktif, setKategoriAktif] = useState('');
   const {
     daftarProduk, // Ini sudah berupa array hasil filter dari hook
     daftarProdukAsli,
+    setDaftarProdukAsli,
     kataKunci,
     setKataKunci,
     produkDipilih,
@@ -25,14 +28,20 @@ export default function ProdukPage() {
     hapusProduk,
     pilihProduk,
     tutupDetail
-  } = useProduk();
+  } = useProduk(storeId);
   const daftarProdukRugi = filterProdukRugi(daftarProdukAsli);
   const daftarProdukKurangLengkap = filterProdukKurangLengkap(daftarProdukAsli);
+  const daftarProdukDenganKategori = kategoriAktif
+    ? daftarProduk.filter((produk) =>
+        String(produk.kategori || '').trim().toLocaleLowerCase('id-ID') ===
+        kategoriAktif.toLocaleLowerCase('id-ID')
+      )
+    : daftarProduk;
   const daftarProdukTampil = filterAktif === 'rugi'
-    ? filterProdukRugi(daftarProduk)
+    ? filterProdukRugi(daftarProdukDenganKategori)
     : filterAktif === 'kurangLengkap'
-      ? filterProdukKurangLengkap(daftarProduk)
-      : daftarProduk;
+      ? filterProdukKurangLengkap(daftarProdukDenganKategori)
+      : daftarProdukDenganKategori;
   const idProdukDipilih = produkDipilih?.idProduk;
 
   useEffect(() => {
@@ -66,7 +75,10 @@ export default function ProdukPage() {
       <div className="flex flex-wrap justify-between items-center gap-3">
         <h1 className="text-xl font-bold text-gray-800">Master Produk</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <ImportProdukJson />
+          <ImportProdukJson
+            storeId={storeId}
+            onImportComplete={setDaftarProdukAsli}
+          />
           <button
             onClick={bukaFormTambah}
             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
@@ -112,6 +124,11 @@ export default function ProdukPage() {
 
       {/* Pencarian (Memanggil state dan setter dari hook) */}
       <CariProduk kataKunci={kataKunci} onUbahKataKunci={setKataKunci} />
+      <FilterKategori
+        daftarProduk={daftarProdukAsli}
+        kategoriAktif={kategoriAktif}
+        onUbahKategori={setKategoriAktif}
+      />
 
       {/* Area Form Modal (Jika Tampil) */}
       {tampilkanForm && (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppMode } from '../../hooks/useAppMode';
 
 export default function Header({
@@ -11,6 +11,21 @@ export default function Header({
   isKasir
 }) {
   const { isSimpleMode, ubahMode } = useAppMode();
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator !== 'undefined' && navigator.onLine
+  );
+
+  useEffect(() => {
+    const tandaiOnline = () => setIsOnline(true);
+    const tandaiOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', tandaiOnline);
+    window.addEventListener('offline', tandaiOffline);
+    return () => {
+      window.removeEventListener('online', tandaiOnline);
+      window.removeEventListener('offline', tandaiOffline);
+    };
+  }, []);
 
   return (
     <header className="bg-white border-b sticky top-0 z-10 px-4 py-3 flex justify-between items-center gap-2 shadow-sm">
@@ -74,8 +89,14 @@ export default function Header({
             ⏹
           </button>
         )}
-        <span className="hidden rounded-full bg-green-100 px-2 py-1 text-[10px] font-medium text-green-700 sm:inline-flex sm:px-2.5 sm:text-xs">
-          Siap Offline
+        <span
+          role="status"
+          aria-live="polite"
+          className={`inline-flex rounded-full px-2 py-1 text-[10px] font-medium sm:px-2.5 sm:text-xs ${
+            isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {isOnline ? 'Online' : 'Offline'}
         </span>
         <button
           type="button"
