@@ -19,7 +19,7 @@ const MENU_SETTING = [
   },
   {
     id: 'nota',
-    judul: 'Struk & Nota',
+    judul: 'Pengaturan Struk & Nota',
     deskripsi: 'Atur ukuran kertas, footer, dan logo nota.',
     ikon: '🧾'
   },
@@ -37,7 +37,7 @@ const MENU_SETTING = [
   },
   {
     id: 'quickButtons',
-    judul: 'Tombol Cepat Eceran',
+    judul: 'Tombol Eceran Cepat',
     deskripsi: 'Kelola nama, harga, dan target tombol cepat pada halaman Kasir.',
     ikon: '⚡'
   },
@@ -76,6 +76,7 @@ const MENU_SETTING = [
 const MENU_SETTING_KARYAWAN = new Set([
   'nota',
   'perangkat',
+  'quickButtons',
   'shortcut',
   'tentang'
 ]);
@@ -91,21 +92,18 @@ function renderSubMenu(activeMenu, profil, roleAktif) {
     case 'perangkat':
       return <PerangkatKasirForm />;
     case 'quickButtons':
-      if (!['admin', 'super_admin'].includes(roleAktif)) return null;
+      if (!['admin', 'super_admin', 'karyawan'].includes(roleAktif)) return null;
       return <PengaturanQuickButton />;
     case 'shortcut':
       return <PanduanShortcutKeyboard />;
     case 'keamanan':
       return <AkunKeamananSection />;
     case 'karyawan':
-      if (roleAktif === 'super_admin') {
-        return <TambahKaryawanForm role={roleAktif} />;
-      }
-      if (roleAktif !== 'admin') return null;
+      if (!['admin', 'super_admin'].includes(roleAktif)) return null;
       if (!profil.store_id) {
         return (
           <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-            ID Toko admin tidak tersedia. Akun karyawan belum dapat dibuat.
+            ID Toko tidak tersedia. Akun karyawan belum dapat dibuat.
           </p>
         );
       }

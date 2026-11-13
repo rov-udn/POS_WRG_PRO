@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  browserSessionPersistence,
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
   deleteUser,
   sendPasswordResetEmail,
@@ -29,9 +29,6 @@ const PESAN_ERROR_AUTENTIKASI = {
   'permission-denied': 'Tidak dapat menyimpan profil akun. Periksa izin Firestore.',
   'unavailable': 'Layanan sedang tidak tersedia. Periksa koneksi lalu coba lagi.'
 };
-
-// Email utama awal untuk penetapan Super Admin otomatis
-const EMAIL_SUPER_ADMIN_AWAL = 'rofiuddin220@gmail.com';
 
 export default function LoginPage({ onLoginBerhasil }) {
   const [mode, setMode] = useState('login');
@@ -88,31 +85,26 @@ export default function LoginPage({ onLoginBerhasil }) {
     let profilTersimpan = false;
 
     try {
-      await setPersistence(auth, browserSessionPersistence);
+      await setPersistence(auth, browserLocalPersistence);
       let hasilLogin;
 
       if (mode === 'daftar') {
         hasilLogin = await createUserWithEmailAndPassword(auth, email, kataSandi);
         penggunaBaru = hasilLogin.user;
 
-        const emailTersimpan = penggunaBaru.email?.toLowerCase().trim();
-        const adalahSuperAdmin = emailTersimpan === EMAIL_SUPER_ADMIN_AWAL.toLowerCase();
-
         await setDoc(doc(db, 'users', penggunaBaru.uid), {
           uid: penggunaBaru.uid,
           email: penggunaBaru.email,
           nama: nama.trim(),
-          role: adalahSuperAdmin ? 'super_admin' : 'admin',
+          role: 'admin',
           store_id: penggunaBaru.uid,
-          status: adalahSuperAdmin ? 'active' : 'pending'
+          status: 'pending'
         });
         profilTersimpan = true;
 
-        if (!adalahSuperAdmin) {
-          await signOut(auth);
-          setPesanError('Akun Anda masih menunggu persetujuan dari Super Admin.');
-          return;
-        }
+        await signOut(auth);
+        setPesanError('Akun Anda masih menunggu persetujuan dari Super Admin.');
+        return;
       } else {
         hasilLogin = await signInWithEmailAndPassword(auth, email, kataSandi);
 

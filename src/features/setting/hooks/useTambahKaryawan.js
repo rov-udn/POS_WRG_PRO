@@ -8,7 +8,7 @@ import {
   setPersistence,
   signOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../../constants/firebaseConfig';
 
 export default function useTambahKaryawan() {
@@ -17,7 +17,7 @@ export default function useTambahKaryawan() {
   const tambahKaryawan = async ({ nama, email, kataSandi, storeId }) => {
     const adminAktif = auth.currentUser;
 
-    if (!adminAktif || !storeId) {
+    if (!adminAktif) {
       throw new Error('Sesi admin tidak tersedia. Silakan masuk kembali.');
     }
 
@@ -28,11 +28,17 @@ export default function useTambahKaryawan() {
     let profilTersimpan = false;
 
     try {
-      const dokumenAdmin = await getDoc(doc(db, 'users', adminAktif.uid));
+      const dokumenAdmin = await getDocFromServer(doc(db, 'users', adminAktif.uid));
       const profilAdmin = dokumenAdmin.exists() ? dokumenAdmin.data() : null;
+      const storeIdAkun = String(profilAdmin?.store_id || '').trim();
 
-      if (profilAdmin?.role !== 'admin' || profilAdmin.store_id !== storeId) {
-        throw new Error('Hanya admin toko yang dapat membuat akun karyawan.');
+      if (
+        !['admin', 'super_admin'].includes(profilAdmin?.role) ||
+        profilAdmin.status !== 'active' ||
+        !storeIdAkun ||
+        (storeId && storeId !== storeIdAkun)
+      ) {
+        throw new Error('Hanya admin atau Super Admin dengan ID toko valid yang dapat membuat akun karyawan.');
       }
 
       aplikasiAuthSementara = initializeApp(
@@ -54,7 +60,7 @@ export default function useTambahKaryawan() {
         email: karyawanBaru.email,
         nama: nama.trim(),
         role: 'karyawan',
-        store_id: storeId,
+        store_id: storeIdAkun,
         status: 'active'
       });
       profilTersimpan = true;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import BottomNavigation from './BottomNavigation';
-import { AppModeProvider } from '../../hooks/useAppMode';
+import { AppModeProvider, useAppMode } from '../../hooks/useAppMode';
 import useMenuNotifications from '../../hooks/useMenuNotifications';
 import { useSettings } from '../../features/setting/hooks/useSettings';
 import EndShiftModal from '../../features/kasir/components/EndShiftModal';
@@ -16,7 +16,8 @@ const DAFTAR_MENU = [
   { id: 'belanja', label: 'Belanja', ikon: '📝' },
   { id: 'history', label: 'Riwayat', ikon: '📜' },
   { id: 'laporan', label: 'Laporan', ikon: '📊' },
-  { id: 'setting', label: 'Pengaturan', ikon: '⚙️' }
+  { id: 'setting', label: 'Pengaturan', ikon: '⚙️' },
+  { id: 'approval', label: 'Approval', ikon: '✅' }
 ];
 
 export default function AppLayout({
@@ -164,7 +165,36 @@ export default function AppLayout({
             onSimpan={simpanDanTutupShift}
           />
         )}
+        <ModeTransitionOverlay />
       </div>
     </AppModeProvider>
+  );
+}
+
+
+function ModeTransitionOverlay() {
+  const { sedangMengubahMode } = useAppMode();
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-hidden={!sedangMengubahMode}
+      className={`fixed inset-0 z-[80] flex items-center justify-center bg-gray-50/90 backdrop-blur-sm transition-opacity duration-150 ${
+        sedangMengubahMode ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
+    >
+      {sedangMengubahMode && (
+        <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white/95 px-5 py-4 shadow-lg">
+          <span
+            aria-hidden="true"
+            className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700"
+          />
+          <span className="text-sm font-semibold text-gray-700">
+            Menyesuaikan mode aplikasi...
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

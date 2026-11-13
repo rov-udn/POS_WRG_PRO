@@ -10,11 +10,12 @@ import BelanjaPage from '../features/belanja/BelanjaPage';
 import RiwayatPage from '../features/riwayat/RiwayatPage';
 import LaporanPage from '../features/laporan/LaporanPage';
 import SettingPage from '../features/setting/settingPage';
+import ApprovalPage from '../features/setting/ApprovalPage';
 import useUserProfile from '../features/setting/hooks/useUserProfile';
 
 const MENU_ADMIN = ['produk', 'gudang', 'kasir', 'belanja', 'history', 'laporan', 'setting'];
-const MENU_KARYAWAN = ['kasir', 'gudang', 'history', 'setting'];
-const MENU_SUPER_ADMIN = MENU_ADMIN;
+const MENU_KARYAWAN = ['kasir', 'history', 'setting'];
+const MENU_SUPER_ADMIN = [...MENU_ADMIN, 'approval'];
 
 export default function App() {
   const [menuAktif, setMenuAktif] = useState('produk');
@@ -60,7 +61,7 @@ export default function App() {
       case 'gudang':
         return <GudangPage key={profil.store_id} role={role} storeId={profil.store_id} />;
       case 'history':
-        return <RiwayatPage />;
+        return <RiwayatPage profil={profil} pengguna={pengguna} />;
       case 'laporan':
         return <LaporanPage role={role} />;
       case 'setting':
@@ -72,6 +73,8 @@ export default function App() {
             pesanErrorProfil={pesanError}
           />
         );
+      case 'approval':
+        return <ApprovalPage />;
       default:
         return (
           <div className="bg-white border rounded-lg p-8 text-center text-gray-500 shadow-sm">
@@ -99,7 +102,9 @@ export default function App() {
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <section className="w-full max-w-md space-y-4 rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
           <p role="alert" className="text-sm text-red-700">
-            {pesanError || 'Profil atau role akun tidak valid. Hubungi admin toko.'}
+            {profil?.status === 'pending'
+              ? 'Akun Anda masih menunggu persetujuan Super Admin.'
+              : pesanError || 'Profil atau role akun tidak valid. Hubungi admin toko.'}
           </p>
           <button
             type="button"

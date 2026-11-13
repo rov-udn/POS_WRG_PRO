@@ -227,7 +227,7 @@ export default function ReturTukar({ daftarProduk, onProses }) {
     }));
   };
 
-  const proses = () => {
+  const proses = async () => {
     if (barangKembali.length === 0) {
       alert('Pilih minimal satu barang yang dikembalikan.');
       return;
@@ -242,7 +242,7 @@ export default function ReturTukar({ daftarProduk, onProses }) {
     }
     setSedangMenyimpan(true);
     try {
-      const berhasil = onProses({
+      const berhasil = await onProses({
         barangKembali,
         barangPengganti,
         metodePembayaran,
@@ -260,6 +260,9 @@ export default function ReturTukar({ daftarProduk, onProses }) {
         setBarangPengganti([]);
         setJumlahDiterima('');
       }
+    } catch (error) {
+      console.error('Gagal memproses retur/tukar:', error);
+      alert('❌ Retur/tukar gagal diproses. Silakan coba kembali.');
     } finally {
       setSedangMenyimpan(false);
     }

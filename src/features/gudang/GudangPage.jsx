@@ -7,7 +7,7 @@ import RiwayatRestock from './components/RiwayatRestock';
 import { useAppMode } from '../../hooks/useAppMode';
 import UnpackLogWidget from './components/UnpackLogWidget'; // Sesuaikan path folder jika diperlukan
 export default function GudangPage({ role, storeId }) {
-  const isAdmin = role === 'admin';
+  const isAdmin = ['admin', 'super_admin'].includes(role);
   const { fitur } = useAppMode();
   const [bukaModalKeranjang, setBukaModalKeranjang] = useState(false);
   const bukaModalAntrean = useCallback(() => setBukaModalKeranjang(true), []);

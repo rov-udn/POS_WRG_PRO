@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ATURAN_MODE, KUNCI_STORAGE_MODE } from '../../../constants/configMode';
+import { db } from '../../../constants/firebaseConfig';
 import { calculateSubtotal, roundPreciseQuantity, roundQuantity } from '../../../utils/formatQuantity';
 import {
   apakahProdukBerubahDariSnapshot,
@@ -606,7 +608,7 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
     return true;
   };
 
-  const prosesReturTukar = ({ barangKembali, barangPengganti, metodePembayaran, jumlahDiterima }) => {
+  const prosesReturTukar = async ({ barangKembali, barangPengganti, metodePembayaran, jumlahDiterima }) => {
     if (!KUNCI_STORAGE_PRODUK) {
       alert('ID toko aktif tidak tersedia. Retur/tukar belum diproses.');
       return false;
@@ -710,11 +712,54 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
         ? Math.max(0, Number(jumlahDiterima) - selisih)
         : 0
     };
+    const dataReturFirestore = {
+      store_id: storeId,
+      timestamp: tglSekarang.toISOString(),
+      createdAt: serverTimestamp(),
+      kasir: namaKasir || idKasir || 'Pengguna',
+      barangKembali: itemsKembali.map((item) => ({
+        idProduk: item.idProduk,
+        namaProduk: item.namaProduk,
+        idSatuan: item.idSatuan,
+        namaSatuan: item.namaSatuan,
+        qty: item.qty,
+        hargaSatuan: item.hargaJualSatuan,
+        subtotal: item.subtotal
+      })),
+      barangPengganti: itemsPengganti.map((item) => ({
+        idProduk: item.idProduk,
+        namaProduk: item.namaProduk,
+        idSatuan: item.idSatuan,
+        namaSatuan: item.namaSatuan,
+        qty: item.qty,
+        hargaSatuan: item.hargaJualSatuan,
+        subtotal: item.subtotal
+      })),
+      totalKembali,
+      totalPengganti,
+      selisih,
+      statusKeuangan: selisih > 0
+        ? 'BAYAR_TAMBAHAN'
+        : selisih < 0
+          ? 'REFUND_KAS'
+          : 'IMPAS',
+      metodePembayaran,
+      jumlahDiterima: Number(jumlahDiterima) || 0
+    };
 
     const produkTersimpanSebelumnya = fiturAktif.ubahStok
       ? localStorage.getItem(KUNCI_STORAGE_PRODUK)
       : null;
     const transaksiTersimpanSebelumnya = localStorage.getItem(KUNCI_STORAGE_TRANSAKSI);
+    const batalkanPerubahanLokal = () => {
+      if (fiturAktif.ubahStok) {
+        if (produkTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_PRODUK);
+        else localStorage.setItem(KUNCI_STORAGE_PRODUK, produkTersimpanSebelumnya);
+      }
+      if (transaksiTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_TRANSAKSI);
+      else localStorage.setItem(KUNCI_STORAGE_TRANSAKSI, transaksiTersimpanSebelumnya);
+    };
+
     try {
       if (fiturAktif.ubahStok) {
         localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukBaru));
@@ -725,17 +770,25 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       );
     } catch (error) {
       try {
-        if (fiturAktif.ubahStok) {
-          if (produkTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_PRODUK);
-          else localStorage.setItem(KUNCI_STORAGE_PRODUK, produkTersimpanSebelumnya);
-        }
-        if (transaksiTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_TRANSAKSI);
-        else localStorage.setItem(KUNCI_STORAGE_TRANSAKSI, transaksiTersimpanSebelumnya);
+        batalkanPerubahanLokal();
       } catch (rollbackError) {
         console.error('Gagal membatalkan perubahan data retur/tukar:', rollbackError);
       }
       console.error('Gagal menyimpan transaksi retur/tukar:', error);
       alert('❌ Retur/tukar gagal disimpan. Periksa ruang penyimpanan lalu coba kembali.');
+      return false;
+    }
+
+    try {
+      await setDoc(doc(db, 'retur_logs', idRetur), dataReturFirestore);
+    } catch (error) {
+      try {
+        batalkanPerubahanLokal();
+      } catch (rollbackError) {
+        console.error('Gagal membatalkan perubahan data retur/tukar:', rollbackError);
+      }
+      console.error('Gagal menyimpan riwayat retur ke Firestore:', error);
+      alert('❌ Riwayat retur gagal disimpan ke Firestore. Periksa koneksi lalu coba kembali.');
       return false;
     }
 
