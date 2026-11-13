@@ -5,6 +5,7 @@ import { useAppMode } from '../../../hooks/useAppMode';
 export default function DaftarProdukKasir({
   daftarProduk,
   kataKunci,
+  kategoriAktif,
   onPilihProduk
 }) {
   const { fitur } = useAppMode();
@@ -12,12 +13,15 @@ export default function DaftarProdukKasir({
   const [satuanTerpilih, setSatuanTerpilih] = useState({});
 
   const produkTersaring = daftarProduk.filter((produk) => {
-    const q = kataKunci.toLowerCase();
+    const q = kataKunci.trim().toLocaleLowerCase('id-ID');
     const cocokNama = produk.namaProduk?.toLowerCase().includes(q);
     const cocokBarcode = produk.listSatuan?.some((s) =>
       s.barcode?.toLowerCase().includes(q)
     );
-    return cocokNama || cocokBarcode;
+    const cocokKategori = !kategoriAktif ||
+      String(produk.kategori || '').trim().toLocaleLowerCase('id-ID') ===
+        kategoriAktif.toLocaleLowerCase('id-ID');
+    return cocokKategori && (cocokNama || cocokBarcode);
   });
 
   if (produkTersaring.length === 0) {

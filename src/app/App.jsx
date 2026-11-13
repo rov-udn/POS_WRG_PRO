@@ -14,7 +14,7 @@ import useUserProfile from '../features/setting/hooks/useUserProfile';
 
 const MENU_ADMIN = ['produk', 'gudang', 'kasir', 'belanja', 'history', 'laporan', 'setting'];
 const MENU_KARYAWAN = ['kasir', 'gudang', 'history', 'setting'];
-const MENU_SUPER_ADMIN = ['setting'];
+const MENU_SUPER_ADMIN = MENU_ADMIN;
 
 export default function App() {
   const [menuAktif, setMenuAktif] = useState('produk');
@@ -52,13 +52,13 @@ export default function App() {
   const renderHalaman = () => {
     switch (menuEfektif) {
       case 'belanja':
-        return <BelanjaPage />;
+        return <BelanjaPage key={profil.store_id} storeId={profil.store_id} />;
       case 'kasir':
         return <KasirPage profil={profil} pengguna={pengguna} />;
       case 'produk':
-        return <ProdukPage />;
+        return <ProdukPage key={profil.store_id} storeId={profil.store_id} />;
       case 'gudang':
-        return <GudangPage role={role} />;
+        return <GudangPage key={profil.store_id} role={role} storeId={profil.store_id} />;
       case 'history':
         return <RiwayatPage />;
       case 'laporan':

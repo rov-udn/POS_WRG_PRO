@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useKasir } from './hooks/useKasir';
 import PencarianProduk from './components/PencarianProduk';
 import DaftarProdukKasir from './components/DaftarProdukKasir';
+import FilterKategori from '../../components/ui/FilterKategori';
 import KeranjangKasir from './components/KeranjangKasir';
 import Pembayaran from './components/Pembayaran';
 import Nota from './components/Nota';
@@ -37,11 +38,13 @@ export default function KasirPage({ profil, pengguna }) {
     hapusDraf,
     produkKeranjangBerubah,
   } = useKasir({
+    storeId: profil?.store_id,
     idKasir: pengguna?.uid,
     namaKasir: profil?.nama || profil?.email
   });
 
   const [kataKunci, setKataKunci] = useState('');
+  const [kategoriAktif, setKategoriAktif] = useState('');
   const [modeKasir, setModeKasir] = useState('PENJUALAN');
   const [tampilModalPembayaran, setTampilModalPembayaran] = useState(false);
   const [tampilModalDraf, setTampilModalDraf] = useState(false);
@@ -187,9 +190,15 @@ export default function KasirPage({ profil, pengguna }) {
                 onScanBarcode={handleScanBarcode}
                 searchInputRef={searchInputRef}
               />
+              <FilterKategori
+                daftarProduk={daftarProduk}
+                kategoriAktif={kategoriAktif}
+                onUbahKategori={setKategoriAktif}
+              />
               <DaftarProdukKasir
                 daftarProduk={daftarProduk}
                 kataKunci={kataKunci}
+                kategoriAktif={kategoriAktif}
                 onPilihProduk={tambahKeKeranjang}
               />
             </div>

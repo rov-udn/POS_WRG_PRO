@@ -9,9 +9,9 @@ import {
   hitungRasioSatuanKeBasisSaatIni
 } from '../../produk/utils/produkUtils';
 import { beriTahuMenuNotificationsDiperbarui } from '../../../utils/menuNotifications';
+import { buatKunciStorageProduk } from '../../produk/utils/produkStorage';
 
 const KUNCI_STORAGE_RESTOCK = 'pos_warung_restock_logs';
-const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
 const KUNCI_STORAGE_ANTREAN = 'pos_warung_antrean_restock';
 const KUNCI_STORAGE_KERANJANG_RESTOCK = 'pos_warung_keranjang_restock';
 
@@ -26,7 +26,8 @@ function ambilKeranjangRestockTersimpan() {
   }
 }
 
-export function useGudang({ onAntreanRestockDiterima } = {}) {
+export function useGudang({ storeId, onAntreanRestockDiterima } = {}) {
+  const KUNCI_STORAGE_PRODUK = buatKunciStorageProduk(storeId);
   const { fitur } = useAppMode();
   const [tabAktif, setTabAktif] = useState('stok'); // 'stok', 'riwayat'
   const [keranjangRestock, setKeranjangRestock] = useState(ambilKeranjangRestockTersimpan);
@@ -35,6 +36,7 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
   // Data produk dari localStorage
   const [daftarProduk, setDaftarProduk] = useState(() => {
     try {
+      if (!KUNCI_STORAGE_PRODUK) return [];
       const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
       return data ? JSON.parse(data) : [];
     } catch (e) {
@@ -45,6 +47,7 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
   useEffect(() => {
     const muatProdukTerbaru = () => {
       try {
+        if (!KUNCI_STORAGE_PRODUK) return;
         const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
         setDaftarProduk(data ? JSON.parse(data) : []);
       } catch (error) {
@@ -66,7 +69,7 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
       window.removeEventListener('storage', tanganiStorage);
       window.removeEventListener(EVENT_PRODUK_DIPERBARUI, muatProdukTerbaru);
     };
-  }, []);
+  }, [KUNCI_STORAGE_PRODUK]);
 
   // Data log restock & penyesuaian (disatukan dalam satu sumber riwayat)
   const [riwayatRestock, setRiwayatRestock] = useState(() => {
@@ -278,6 +281,10 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
   // Eksekusi Massal (Bulk Restock)
   const prosesRestockMassal = (catatanUmum) => {
     if (keranjangRestock.length === 0) return false;
+    if (!KUNCI_STORAGE_PRODUK) {
+      alert('ID toko aktif tidak tersedia. Restock belum diproses.');
+      return false;
+    }
 
     let produkTerkini;
     try {
@@ -401,6 +408,10 @@ export function useGudang({ onAntreanRestockDiterima } = {}) {
   // Fungsi penyesuaian stok disatukan ke riwayatRestock dan mengembalikan status boolean
   const prosesPenyesuaianStok = ({ idProduk, qtyPcsKurang, alasan, catatan }) => {
     if (!fitur.ubahStok) return false;
+    if (!KUNCI_STORAGE_PRODUK) {
+      alert('ID toko aktif tidak tersedia. Penyesuaian stok belum diproses.');
+      return false;
+    }
 
     try {
       const produkTerkini = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');

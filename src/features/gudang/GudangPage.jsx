@@ -6,7 +6,7 @@ import PenyesuaianStokModal from './components/PenyesuaianStokModal';
 import RiwayatRestock from './components/RiwayatRestock';
 import { useAppMode } from '../../hooks/useAppMode';
 import UnpackLogWidget from './components/UnpackLogWidget'; // Sesuaikan path folder jika diperlukan
-export default function GudangPage({ role }) {
+export default function GudangPage({ role, storeId }) {
   const isAdmin = role === 'admin';
   const { fitur } = useAppMode();
   const [bukaModalKeranjang, setBukaModalKeranjang] = useState(false);
@@ -22,7 +22,7 @@ export default function GudangPage({ role }) {
     hapusItemKeranjang,
     prosesRestockMassal,
     prosesPenyesuaianStok
-  } = useGudang({ onAntreanRestockDiterima: bukaModalAntrean });
+  } = useGudang({ storeId, onAntreanRestockDiterima: bukaModalAntrean });
   
   const [produkPenyesuaian, setProdukPenyesuaian] = useState(null);
   const tabEfektif = isAdmin ? tabAktif : 'stok';
@@ -52,7 +52,7 @@ export default function GudangPage({ role }) {
       </div>
 
       <div className="my-4">
-        <UnpackLogWidget />
+        <UnpackLogWidget storeId={storeId} />
       </div>
 
       {/* Konten Tab */}

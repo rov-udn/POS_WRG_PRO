@@ -8,9 +8,8 @@ import {
   EVENT_QUICK_BUTTONS_UPDATED,
   KUNCI_STORAGE_QUICK_BUTTONS
 } from '../../kasir/utils/unpackItems';
+import { buatKunciStorageProduk } from '../../produk/utils/produkStorage';
 
-const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
-const KUNCI_STORAGE_PRODUK_LEGACY = 'pos_warung_products';
 const KUNCI_STORAGE_UNPACK = 'active_unpack_items';
 const KUNCI_STORAGE_SHRINKAGE = 'pos_warung_shrinkage_logs';
 const EVENT_UNPACK_DIPERBARUI = 'active-unpack-items-updated';
@@ -25,9 +24,9 @@ function buatIdUnpack() {
   return `UNPACK-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function bacaDaftarProduk() {
-  const data = localStorage.getItem(KUNCI_STORAGE_PRODUK)
-    ?? localStorage.getItem(KUNCI_STORAGE_PRODUK_LEGACY);
+function bacaDaftarProduk(kunciStorageProduk) {
+  if (!kunciStorageProduk) return [];
+  const data = localStorage.getItem(kunciStorageProduk);
   if (!data) return [];
 
   const hasil = JSON.parse(data);
@@ -65,7 +64,8 @@ function formatTanggal(tanggal) {
       }).format(nilaiTanggal);
 }
 
-export default function UnpackLogWidget() {
+export default function UnpackLogWidget({ storeId }) {
+  const KUNCI_STORAGE_PRODUK = buatKunciStorageProduk(storeId);
   const [itemAktif, setItemAktif] = useState(() => {
     try {
       return bacaItemAktif();
@@ -76,7 +76,7 @@ export default function UnpackLogWidget() {
   });
   const [daftarProduk, setDaftarProduk] = useState(() => {
     try {
-      return bacaDaftarProduk();
+      return bacaDaftarProduk(KUNCI_STORAGE_PRODUK);
     } catch (error) {
       console.error('Gagal memuat produk untuk dibuka:', error);
       return [];
@@ -113,7 +113,7 @@ export default function UnpackLogWidget() {
   useEffect(() => {
     const muatProduk = () => {
       try {
-        setDaftarProduk(bacaDaftarProduk());
+        setDaftarProduk(bacaDaftarProduk(KUNCI_STORAGE_PRODUK));
       } catch (error) {
         console.error('Gagal memuat produk yang diperbarui:', error);
         setPesanError('Data produk tidak dapat dibaca. Periksa penyimpanan produk.');
@@ -136,8 +136,7 @@ export default function UnpackLogWidget() {
     };
     const tanganiStorage = (event) => {
       if (
-        event.key === KUNCI_STORAGE_PRODUK ||
-        event.key === KUNCI_STORAGE_PRODUK_LEGACY
+        event.key === KUNCI_STORAGE_PRODUK
       ) muatProduk();
       if (event.key === KUNCI_STORAGE_UNPACK) muatItemAktif();
       if (event.key === KUNCI_STORAGE_QUICK_BUTTONS) muatTombolCepat();
@@ -153,7 +152,7 @@ export default function UnpackLogWidget() {
       window.removeEventListener(EVENT_UNPACK_DIPERBARUI, muatItemAktif);
       window.removeEventListener(EVENT_QUICK_BUTTONS_UPDATED, muatTombolCepat);
     };
-  }, []);
+  }, [KUNCI_STORAGE_PRODUK]);
 
   const bukaKemasan = (produk, satuan, tombolCepat) => {
     setPesanError('');
@@ -161,13 +160,14 @@ export default function UnpackLogWidget() {
     let dataUnpackSebelumnya;
 
     try {
-      const kunciProduk = localStorage.getItem(KUNCI_STORAGE_PRODUK) !== null
-        ? KUNCI_STORAGE_PRODUK
-        : KUNCI_STORAGE_PRODUK_LEGACY;
+      if (!KUNCI_STORAGE_PRODUK) {
+        throw new Error('ID toko aktif tidak tersedia.');
+      }
+      const kunciProduk = KUNCI_STORAGE_PRODUK;
       dataProdukSebelumnya = localStorage.getItem(kunciProduk);
       dataUnpackSebelumnya = localStorage.getItem(KUNCI_STORAGE_UNPACK);
 
-      const produkTerkini = bacaDaftarProduk();
+      const produkTerkini = bacaDaftarProduk(KUNCI_STORAGE_PRODUK);
       const target = produkTerkini.find((item) => item.idProduk === produk.idProduk);
       if (!target) {
         setPesanError('Produk tidak ditemukan. Muat ulang daftar produk lalu coba lagi.');
@@ -232,13 +232,11 @@ export default function UnpackLogWidget() {
       console.error('Gagal membuka kemasan grosir:', error);
       try {
         if (dataProdukSebelumnya === null) {
-          localStorage.removeItem(KUNCI_STORAGE_PRODUK);
-          localStorage.removeItem(KUNCI_STORAGE_PRODUK_LEGACY);
+          if (KUNCI_STORAGE_PRODUK) localStorage.removeItem(KUNCI_STORAGE_PRODUK);
         } else if (dataProdukSebelumnya !== undefined) {
-          const kunciProduk = localStorage.getItem(KUNCI_STORAGE_PRODUK) !== null
-            ? KUNCI_STORAGE_PRODUK
-            : KUNCI_STORAGE_PRODUK_LEGACY;
-          localStorage.setItem(kunciProduk, dataProdukSebelumnya);
+          if (KUNCI_STORAGE_PRODUK) {
+            localStorage.setItem(KUNCI_STORAGE_PRODUK, dataProdukSebelumnya);
+          }
         }
         if (dataUnpackSebelumnya === null) {
           localStorage.removeItem(KUNCI_STORAGE_UNPACK);

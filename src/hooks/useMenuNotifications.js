@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { EVENT_PRODUK_DIPERBARUI } from '../features/produk/utils/produkUtils';
 import { EVENT_MENU_NOTIFICATIONS_DIPERBARUI } from '../utils/menuNotifications';
-
-const KUNCI_STORAGE_PRODUK = 'pos_warung_daftar_produk';
+import { buatKunciStorageProduk } from '../features/produk/utils/produkStorage';
 const KUNCI_STORAGE_DRAF_BELANJA = 'pos_warung_draf_belanja';
 const KUNCI_STORAGE_KERANJANG_RESTOCK = 'pos_warung_keranjang_restock';
 const KUNCI_STORAGE_ANTREAN_RESTOCK = 'pos_warung_antrean_restock';
 const KUNCI_STORAGE_SETTINGS = 'pos_wrg_settings';
 
 function bacaDataStorage(kunci, defaultValue) {
+  if (!kunci) return defaultValue;
   try {
     const data = localStorage.getItem(kunci);
     return data ? JSON.parse(data) : defaultValue;
@@ -52,7 +52,7 @@ function hitungItemRestock(keranjang, antrean) {
   return jumlahKeranjang + jumlahAntrean;
 }
 
-function bacaIndikatorMenu(jumlahProdukPerluPerhatian) {
+function bacaIndikatorMenu(jumlahProdukPerluPerhatian, kunciStorageProduk) {
   const drafBelanja = bacaDataStorage(KUNCI_STORAGE_DRAF_BELANJA, []);
   const keranjangRestock = bacaDataStorage(KUNCI_STORAGE_KERANJANG_RESTOCK, []);
   const antreanRestock = bacaDataStorage(KUNCI_STORAGE_ANTREAN_RESTOCK, []);
@@ -60,7 +60,7 @@ function bacaIndikatorMenu(jumlahProdukPerluPerhatian) {
   const jumlahProduk = Number.isFinite(jumlahProdukPerluPerhatian)
     ? jumlahProdukPerluPerhatian
     : hitungProdukPerluPerhatian(
-        bacaDataStorage(KUNCI_STORAGE_PRODUK, [])
+        bacaDataStorage(kunciStorageProduk, [])
       );
   const profil = settings?.profil || {};
   const profilBelumLengkap = ['namaToko', 'alamat', 'noTelp'].some(
@@ -76,25 +76,26 @@ function bacaIndikatorMenu(jumlahProdukPerluPerhatian) {
   };
 }
 
-export default function useMenuNotifications() {
-  const [indikator, setIndikator] = useState(bacaIndikatorMenu);
+export default function useMenuNotifications(storeId) {
+  const kunciStorageProduk = buatKunciStorageProduk(storeId);
+  const [indikator, setIndikator] = useState(() => bacaIndikatorMenu(undefined, kunciStorageProduk));
 
   const perbaruiIndikator = useCallback((event) => {
     setIndikator((sebelumnya) => {
       const produkBerubah = event?.type === EVENT_PRODUK_DIPERBARUI
-        || (event?.type === 'storage' && event.key === KUNCI_STORAGE_PRODUK);
+        || (kunciStorageProduk && event?.type === 'storage' && event.key === kunciStorageProduk);
       const jumlahProdukPerluPerhatian = produkBerubah
         ? hitungProdukPerluPerhatian(
-            bacaDataStorage(KUNCI_STORAGE_PRODUK, [])
+            bacaDataStorage(kunciStorageProduk, [])
           )
         : sebelumnya.produk;
-      return bacaIndikatorMenu(jumlahProdukPerluPerhatian);
+      return bacaIndikatorMenu(jumlahProdukPerluPerhatian, kunciStorageProduk);
     });
-  }, []);
+  }, [kunciStorageProduk]);
 
   useEffect(() => {
     const kunciDipantau = new Set([
-      KUNCI_STORAGE_PRODUK,
+      ...(kunciStorageProduk ? [kunciStorageProduk] : []),
       KUNCI_STORAGE_DRAF_BELANJA,
       KUNCI_STORAGE_KERANJANG_RESTOCK,
       KUNCI_STORAGE_ANTREAN_RESTOCK,
@@ -112,7 +113,7 @@ export default function useMenuNotifications() {
       window.removeEventListener(EVENT_PRODUK_DIPERBARUI, perbaruiIndikator);
       window.removeEventListener(EVENT_MENU_NOTIFICATIONS_DIPERBARUI, perbaruiIndikator);
     };
-  }, [perbaruiIndikator]);
+  }, [perbaruiIndikator, kunciStorageProduk]);
 
   return indikator;
 }
