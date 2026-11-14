@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
+import { bagikanTeks } from '../../../utils/bagikanTeks';
 
 const KUNCI_STORAGE_TRANSAKSI = 'pos_warung_transactions';
 
 export default function RiwayatPenjualan({ onPilihTransaksi }) {
   const [daftarTransaksi, setDaftarTransaksi] = useState([]);
   const [kataKunci, setKataKunci] = useState('');
+  const [transaksiUntukDicetak, setTransaksiUntukDicetak] = useState(null);
   
   // State Filter Ringkas
   const [metodeFilter, setMetodeFilter] = useState('ALL'); // ALL | CASH | QRIS / TRANSFER
@@ -36,6 +39,15 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
+  useEffect(() => {
+    if (!transaksiUntukDicetak) return undefined;
+
+    const resetCetak = () => setTransaksiUntukDicetak(null);
+    window.addEventListener('afterprint', resetCetak);
+    window.print();
+    return () => window.removeEventListener('afterprint', resetCetak);
+  }, [transaksiUntukDicetak]);
 
   // Filter gabungan
   const transaksiTersaring = daftarTransaksi.filter((trx) => {
@@ -76,6 +88,38 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
       currency: 'IDR',
       maximumFractionDigits: 0
     }).format(angka || 0);
+  };
+
+  const buatTeksBagikan = (trx) => {
+    const isRetur = trx.tipeTransaksi === 'RETUR_TUKAR';
+    const daftarItem = Array.isArray(trx.items) ? trx.items : [];
+    const barisItem = daftarItem.map((item) => {
+      const arah = item.arah === 'MASUK'
+        ? 'Dikembalikan: '
+        : item.arah === 'KELUAR'
+          ? 'Pengganti: '
+          : '';
+      return `• ${arah}${item.namaProduk || 'Produk'} — ${formatQuantity(item.qty)} ${item.namaSatuan || ''} × ${formatRupiah(item.hargaJualSatuan)} = ${formatRupiah(item.subtotal ?? calculateSubtotal(item.hargaJualSatuan, item.qty))}`;
+    });
+    const ringkasanPembayaran = isRetur
+      ? trx.arusKasKeluar > 0
+        ? `Refund: ${formatRupiah(trx.arusKasKeluar)}`
+        : `Pembayaran tambahan: ${formatRupiah((trx.arusKasMasuk || 0) + (trx.arusKasMasukNonTunai || 0))}`
+      : `Total: ${formatRupiah(trx.totalBayar)}\nMetode: ${trx.metodePembayaran || '-'}`;
+
+    return `*${isRetur ? 'RIWAYAT RETUR / TUKAR' : 'NOTA PENJUALAN'}*\nNo. Struk: ${trx.noStruk}\nTanggal: ${new Date(trx.tanggal).toLocaleString('id-ID')}\nKasir: ${trx.namaKasir || '-'}\n\n*Rincian:*\n${barisItem.length ? barisItem.join('\n') : 'Tidak ada rincian barang.'}\n\n${ringkasanPembayaran}${!isRetur && trx.metodePembayaran === 'CASH' ? `\nUang diterima: ${formatRupiah(trx.jumlahUangDiterima)}\nKembalian: ${formatRupiah(trx.kembalian)}` : ''}`;
+  };
+
+  const handleShare = async (trx) => {
+    try {
+      const hasil = await bagikanTeks(buatTeksBagikan(trx));
+      if (hasil === 'disalin') {
+        alert('Rincian transaksi berhasil disalin.');
+      }
+    } catch (error) {
+      console.error('Gagal membagikan riwayat transaksi:', error);
+      alert('Rincian transaksi gagal dibagikan atau disalin.');
+    }
   };
 
   const totalFilterAktif = (metodeFilter !== 'ALL' ? 1 : 0) + (tanggalMulai ? 1 : 0) + (tanggalSelesai ? 1 : 0);
@@ -179,75 +223,186 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
       </div>
 
       {/* Tabel Daftar Transaksi */}
-      <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b text-xs font-semibold text-gray-600 uppercase">
-              <th className="p-3">Waktu & Tanggal</th>
-              <th className="p-3">No. Struk</th>
-              <th className="p-3">Kasir</th>
-              <th className="p-3">Total Item</th>
-              <th className="p-3">Total Bayar</th>
-              <th className="p-3">Metode</th>
-              <th className="p-3 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 text-sm">
-            {transaksiTersaring.map((trx) => (
-              <tr key={trx.noStruk} className="hover:bg-gray-50">
-                <td className="p-3 text-xs text-gray-500">
-                  {new Date(trx.tanggal).toLocaleString('id-ID', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short'
-                  })}
-                </td>
-                <td className="p-3 font-semibold text-gray-800">{trx.noStruk}</td>
-                <td className="p-3 text-gray-700">{trx.namaKasir}</td>
-                <td className="p-3 text-gray-600">
-                  {trx.tipeTransaksi === 'RETUR_TUKAR'
-                    ? `Retur / Tukar (${trx.totalQtyItems} pcs)`
-                    : `${trx.totalQtyItems} pcs`}
-                </td>
-                <td className={`p-3 font-bold ${
-                  trx.tipeTransaksi === 'RETUR_TUKAR' && trx.arusKasKeluar > 0
-                    ? 'text-orange-600'
-                    : 'text-green-600'
-                }`}>
-                  {trx.tipeTransaksi === 'RETUR_TUKAR' && trx.arusKasKeluar > 0
-                    ? `Refund ${formatRupiah(trx.arusKasKeluar)}`
-                    : trx.tipeTransaksi === 'RETUR_TUKAR'
-                      ? `Masuk ${formatRupiah(trx.arusKasMasuk + trx.arusKasMasukNonTunai)}`
-                      : formatRupiah(trx.totalBayar)}
-                </td>
-                <td className="p-3">
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                    trx.metodePembayaran === 'CASH'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-blue-100 text-blue-700'
+      <div className="w-full min-w-0 rounded-lg border bg-white shadow-sm">
+        <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[900px] border-collapse text-left">
+            <thead>
+              <tr className="bg-gray-50 border-b text-xs font-semibold text-gray-600 uppercase">
+                <th className="p-3">Waktu & Tanggal</th>
+                <th className="p-3">No. Struk</th>
+                <th className="p-3">Kasir</th>
+                <th className="p-3">Total Item</th>
+                <th className="p-3">Total Bayar</th>
+                <th className="p-3">Metode</th>
+                <th className="p-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 text-sm">
+              {transaksiTersaring.map((trx) => (
+                <tr key={trx.noStruk} className="hover:bg-gray-50">
+                  <td className="whitespace-nowrap p-3 text-xs text-gray-500">
+                    {new Date(trx.tanggal).toLocaleString('id-ID', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })}
+                  </td>
+                  <td className="whitespace-nowrap p-3 font-semibold text-gray-800">{trx.noStruk}</td>
+                  <td className="whitespace-nowrap p-3 text-gray-700">{trx.namaKasir}</td>
+                  <td className="whitespace-nowrap p-3 text-gray-600">
+                    {trx.tipeTransaksi === 'RETUR_TUKAR'
+                      ? `Retur / Tukar (${trx.totalQtyItems} pcs)`
+                      : `${trx.totalQtyItems} pcs`}
+                  </td>
+                  <td className={`whitespace-nowrap p-3 font-bold ${
+                    trx.tipeTransaksi === 'RETUR_TUKAR' && trx.arusKasKeluar > 0
+                      ? 'text-orange-600'
+                      : 'text-green-600'
                   }`}>
-                    {trx.metodePembayaran}
-                  </span>
-                </td>
-                <td className="p-3 text-center">
-                  <button
-                    onClick={() => onPilihTransaksi(trx)}
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium transition-colors"
-                  >
-                    {trx.tipeTransaksi === 'RETUR_TUKAR' ? 'Detail Retur' : 'Detail Struk'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {transaksiTersaring.length === 0 && (
-              <tr>
-                <td colSpan="7" className="p-6 text-center text-gray-400 text-sm">
-                  Tidak ada data transaksi yang cocok.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                    {trx.tipeTransaksi === 'RETUR_TUKAR' && trx.arusKasKeluar > 0
+                      ? `Refund ${formatRupiah(trx.arusKasKeluar)}`
+                      : trx.tipeTransaksi === 'RETUR_TUKAR'
+                        ? `Masuk ${formatRupiah(trx.arusKasMasuk + trx.arusKasMasukNonTunai)}`
+                        : formatRupiah(trx.totalBayar)}
+                  </td>
+                  <td className="whitespace-nowrap p-3">
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                      trx.metodePembayaran === 'CASH'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {trx.metodePembayaran}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap p-3 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onPilihTransaksi(trx)}
+                        className="rounded bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                      >
+                        {trx.tipeTransaksi === 'RETUR_TUKAR' ? 'Detail Retur' : 'Detail Struk'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTransaksiUntukDicetak(trx)}
+                        aria-label={`Cetak ulang transaksi ${trx.noStruk}`}
+                        className="rounded bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                      >
+                        🖨️ Cetak
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShare(trx)}
+                        aria-label={`Bagikan transaksi ${trx.noStruk}`}
+                        className="rounded bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                      >
+                        📤 Bagikan
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {transaksiTersaring.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="p-6 text-center text-gray-400 text-sm">
+                    Tidak ada data transaksi yang cocok.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+      {transaksiUntukDicetak && (
+        <>
+          <style>{`
+            @page {
+              size: 58mm auto;
+              margin: 0;
+            }
+
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+
+              #area-riwayat-transaksi-thermal,
+              #area-riwayat-transaksi-thermal * {
+                visibility: visible !important;
+              }
+
+              #area-riwayat-transaksi-thermal {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 58mm;
+                padding: 4mm;
+                background: white;
+                color: black;
+                font-family: monospace;
+                font-size: 10px;
+              }
+            }
+          `}</style>
+          <div
+            id="area-riwayat-transaksi-thermal"
+            className="fixed -left-[10000px] top-0 space-y-3"
+          >
+            {(() => {
+              const trx = transaksiUntukDicetak;
+              const isRetur = trx.tipeTransaksi === 'RETUR_TUKAR';
+              const daftarItem = Array.isArray(trx.items) ? trx.items : [];
+              return (
+                <>
+                  <div className="space-y-1 border-b border-dashed border-gray-500 pb-2 text-center">
+                    <h2 className="font-bold uppercase">POS WRG PRO</h2>
+                    <p>{isRetur ? 'NOTA RETUR / TUKAR' : 'NOTA PENJUALAN'}</p>
+                    <p>{new Date(trx.tanggal).toLocaleString('id-ID')}</p>
+                    <p>No: {trx.noStruk}</p>
+                    <p>Kasir: {trx.namaKasir || '-'}</p>
+                  </div>
+                  <div className="space-y-2 border-b border-dashed border-gray-500 py-2">
+                    {daftarItem.map((item, idx) => (
+                      <div key={`${item.idProduk || item.namaProduk}-${idx}`} className="space-y-0.5">
+                        <p>
+                          {item.arah === 'MASUK' ? 'Dikembalikan: ' : item.arah === 'KELUAR' ? 'Pengganti: ' : ''}
+                          {item.namaProduk || 'Produk'}
+                        </p>
+                        <div className="flex justify-between gap-2">
+                          <span>{formatQuantity(item.qty)} {item.namaSatuan || ''} × {formatRupiah(item.hargaJualSatuan)}</span>
+                          <span>{formatRupiah(item.subtotal ?? calculateSubtotal(item.hargaJualSatuan, item.qty))}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-1">
+                    {isRetur ? (
+                      <div className="flex justify-between gap-2 font-bold">
+                        <span>{trx.arusKasKeluar > 0 ? 'Refund:' : 'Pembayaran tambahan:'}</span>
+                        <span>{formatRupiah(trx.arusKasKeluar || (trx.arusKasMasuk || 0) + (trx.arusKasMasukNonTunai || 0))}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between gap-2 font-bold">
+                          <span>TOTAL BAYAR:</span>
+                          <span>{formatRupiah(trx.totalBayar)}</span>
+                        </div>
+                        <p>Metode: {trx.metodePembayaran || '-'}</p>
+                        {trx.metodePembayaran === 'CASH' && (
+                          <>
+                            <p>Uang diterima: {formatRupiah(trx.jumlahUangDiterima)}</p>
+                            <p>Kembalian: {formatRupiah(trx.kembalian)}</p>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </>
+      )}
     </div>
   );
 }

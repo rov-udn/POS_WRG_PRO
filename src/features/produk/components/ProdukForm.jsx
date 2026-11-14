@@ -13,6 +13,7 @@ import {
 } from '../utils/produkUtils';
 import { cekPotensiRugiSatuan } from '../utils/cekRugi';
 import { Alert } from '../../../components/ui/Alert';
+import { useAppMode } from '../../../hooks/useAppMode';
 
 const dapatkanSatuanDasarProduk = (produk, listSatuan) => {
   const satuanDasarTersimpan = listSatuan.find((satuan) => satuan.isBase === true);
@@ -62,6 +63,7 @@ const dapatkanIdSatuanDasarAwal = (produk) => {
 };
 
 export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
+  const { isFullMode } = useAppMode();
   const [namaProduk, setNamaProduk] = useState(dataAwal?.namaProduk ?? '');
   const [kategori, setKategori] = useState(
     dataAwal ? dataAwal.kategori ?? '' : MASTER_KATEGORI_AWAL[0].label
@@ -83,6 +85,10 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
   });
 
   const [listSatuan, setListSatuan] = useState(() => buatListSatuanForm(dataAwal));
+  const [jumlahStokAwal, setJumlahStokAwal] = useState(0);
+  const [idSatuanStokAwal, setIdSatuanStokAwal] = useState(() =>
+    listSatuan.find((satuan) => satuan.isBase)?.idSatuan || ''
+  );
 
   const [idSatuanAcuanModal, setIdSatuanAcuanModal] = useState(() => {
     const satuanAcuanHarga = listSatuan.find(
@@ -125,7 +131,9 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
     setNamaSatuanBaru('');
     setModalTambahKategoriAktif(false);
     setLabelKategoriBaru('');
-  }, [dataAwal]);
+    setJumlahStokAwal(0);
+    setIdSatuanStokAwal(satuanDasarAwal?.idSatuan || '');
+  }, [dataAwal, isOpen]);
 
   useEffect(() => {
     localStorage.setItem('warung_master_satuan', JSON.stringify(masterSatuan));
@@ -266,16 +274,22 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
     dataAwal?.stokUtama || 0,
     rasioSatuanDasarAwalSaatIni
   );
+  const satuanStokAwal = listSatuan.find(
+    (satuan) => satuan.idSatuan === idSatuanStokAwal
+  ) || satuanDasarAktif;
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const stokAwalProdukBaru = isFullMode
+      ? hitungStokUtama(jumlahStokAwal, satuanStokAwal?.rasio)
+      : 20;
     const dataForm = {
       ...(dataAwal?.idProduk && { idProduk: dataAwal.idProduk }),
       namaProduk,
       kategori,
       punyaVarian,
       varian: punyaVarian ? normalisasiVarianProduk(inputVarian) : [],
-      stokUtama: dataAwal ? stokAwalTerkonversi : 20,
+      stokUtama: dataAwal ? stokAwalTerkonversi : stokAwalProdukBaru,
       satuanTerkecil: namaSatuanDasar,
       listSatuan: normalisasiRasioSatuan(
         listSatuanDenganHarga,
@@ -536,6 +550,39 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
             );
           })}
         </div>
+
+        {isFullMode && !dataAwal && (
+          <div className="border-t pt-4">
+            <h4 className="mb-3 text-sm font-bold text-gray-800">Stok Awal</h4>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Input
+                label="Jumlah Stok Awal"
+                type="number"
+                min="0"
+                step="any"
+                placeholder="0"
+                value={jumlahStokAwal}
+                onChange={(e) => setJumlahStokAwal(e.target.value)}
+              />
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Pilih Satuan
+                </label>
+                <select
+                  value={satuanStokAwal?.idSatuan || ''}
+                  onChange={(e) => setIdSatuanStokAwal(e.target.value)}
+                  className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                >
+                  {listSatuan.map((satuan) => (
+                    <option key={satuan.idSatuan} value={satuan.idSatuan}>
+                      {satuan.namaSatuan}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-4 border-t">
           <Button type="submit" variant="primary" className="flex-1">
