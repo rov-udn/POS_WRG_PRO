@@ -5,7 +5,8 @@ export default function DaftarProdukBelanja({
   daftarProduk,
   kataKunci,
   kategoriAktif,
-  onPilihProduk
+  onPilihProduk,
+  keranjangBelanja = []
 }) {
   const [satuanTerpilih, setSatuanTerpilih] = useState({});
 
@@ -41,6 +42,11 @@ export default function DaftarProdukBelanja({
 
         const idSatuanAktif = satuanTerpilih[produk.idProduk] || satuanDefault.idSatuan;
         const satuanAktif = listSatuan.find((s) => s.idSatuan === idSatuanAktif) || satuanDefault;
+        const qtyDiKeranjang = keranjangBelanja.reduce((total, item) => {
+          if (item.idProduk !== produk.idProduk) return total;
+          const qty = Number(item.qty);
+          return total + (Number.isFinite(qty) ? qty : 0);
+        }, 0);
 
         const handlePilihSatuan = (idSatuan) => {
           setSatuanTerpilih((prev) => ({ ...prev, [produk.idProduk]: idSatuan }));
@@ -107,10 +113,15 @@ export default function DaftarProdukBelanja({
               <button
                 type="button"
                 onClick={() => onPilihProduk(produk, satuanAktif)}
-                className="w-10 h-10 rounded-xl font-black text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 active:scale-90 transition-all flex items-center justify-center"
-                title="Tambah ke daftar belanja agen"
+                className="w-10 h-10 rounded-xl font-black text-base bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 active:scale-90 transition-all flex items-center justify-center"
+                title={qtyDiKeranjang > 0
+                  ? `${formatQuantity(qtyDiKeranjang)} di keranjang`
+                  : 'Tambah ke daftar belanja agen'}
+                aria-label={qtyDiKeranjang > 0
+                  ? `${formatQuantity(qtyDiKeranjang)} ${produk.namaProduk} di keranjang`
+                  : `Tambah ${produk.namaProduk} ke daftar belanja agen`}
               >
-                +
+                {qtyDiKeranjang > 0 ? formatQuantity(qtyDiKeranjang) : '+'}
               </button>
             </div>
           </div>

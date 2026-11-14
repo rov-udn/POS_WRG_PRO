@@ -96,8 +96,6 @@ export default function AppLayout({
   }, [profil?.store_id]);
 
   useEffect(() => {
-    if (menuAktif !== 'kasir') return undefined;
-
     const tandaiRiwayatAplikasi = () => {
       window.history.pushState(
         { [PENANDA_BACK_KELUAR]: true },
@@ -137,7 +135,7 @@ export default function AppLayout({
       backPertamaRef.current = false;
       setTampilkanToastKeluar(false);
     };
-  }, [menuAktif]);
+  }, []);
 
   useEffect(() => {
     if (!isKasir || !pengguna?.uid) return;
@@ -210,7 +208,7 @@ export default function AppLayout({
             aria-live="polite"
             className="fixed bottom-20 left-1/2 z-[90] -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-3 text-center text-sm font-medium text-white shadow-lg md:bottom-6"
           >
-            Tekan sekali lagi untuk keluar aplikasi
+            Tekan sekali lagi untuk keluar
           </div>
         )}
         {isKasir && (

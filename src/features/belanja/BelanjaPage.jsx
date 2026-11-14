@@ -9,6 +9,7 @@ import FilterKategori from '../../components/ui/FilterKategori';
 
 export default function BelanjaPage({ storeId }) {
   const [tabAktif, setTabAktif] = useState('BELANJA'); // 'BELANJA' atau 'RIWAYAT'
+  const [tabMobile, setTabMobile] = useState('DAFTAR');
 
   const {
     daftarProduk,
@@ -24,6 +25,7 @@ export default function BelanjaPage({ storeId }) {
     tambahKeKeranjang,
     ubahQtyItem,
     hapusItemKeranjang,
+    resetKeranjang,
     simpanKeDraf,
     toggleStatusKosongDraf,
     ubahQtyRealDraf,
@@ -37,7 +39,7 @@ export default function BelanjaPage({ storeId }) {
   const { settings } = useSettings();
 
  return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6 pb-36 lg:pb-6">
       {/* 1. NAVIGASI TAB UTAMA DI AREA ATAS */}
       <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm w-fit">
         <button
@@ -67,52 +69,79 @@ export default function BelanjaPage({ storeId }) {
       {/* 2. KONTEN UTAMA BERDASARKAN TAB */}
       {tabAktif === 'BELANJA' ? (
         /* --- TAB 1: PERENCANA & BELANJA --- */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Kolom Kiri / Tengah: Daftar Produk Belanja */}
-          <div className="lg:col-span-2">
-            <div className="mb-4 space-y-2">
-              <input
-                type="search"
-                aria-label="Cari produk belanja"
-                value={kataKunci}
-                onChange={(event) => setKataKunci(event.target.value)}
-                placeholder="Cari nama produk atau barcode..."
-                className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
-              />
-              <FilterKategori
+        <>
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-gray-100 p-1 lg:hidden">
+            <button
+              type="button"
+              aria-pressed={tabMobile === 'DAFTAR'}
+              onClick={() => setTabMobile('DAFTAR')}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                tabMobile === 'DAFTAR' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-600'
+              }`}
+            >
+              Daftar Barang
+            </button>
+            <button
+              type="button"
+              aria-pressed={tabMobile === 'KERANJANG'}
+              onClick={() => setTabMobile('KERANJANG')}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                tabMobile === 'KERANJANG' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-600'
+              }`}
+            >
+              Keranjang Saya ({totalQtyItems})
+            </button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Kolom Kiri / Tengah: Daftar Produk Belanja */}
+            <div className={`lg:col-span-2 ${
+              tabMobile === 'DAFTAR' ? 'block' : 'hidden'
+            } lg:block`}>
+              <div className="mb-4 space-y-2">
+                <input
+                  type="search"
+                  aria-label="Cari produk belanja"
+                  value={kataKunci}
+                  onChange={(event) => setKataKunci(event.target.value)}
+                  placeholder="Cari nama produk atau barcode..."
+                  className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                />
+                <FilterKategori
+                  daftarProduk={daftarProduk}
+                  kategoriAktif={kategoriAktif}
+                  onUbahKategori={setKategoriAktif}
+                />
+              </div>
+              <DaftarProdukBelanja
                 daftarProduk={daftarProduk}
+                kataKunci={kataKunci}
                 kategoriAktif={kategoriAktif}
-                onUbahKategori={setKategoriAktif}
+                onPilihProduk={tambahKeKeranjang}
+                keranjangBelanja={keranjangBelanja}
               />
             </div>
-            <DaftarProdukBelanja
-              daftarProduk={daftarProduk}
-              kataKunci={kataKunci}
-              kategoriAktif={kategoriAktif}
-              onPilihProduk={tambahKeKeranjang}
-            />
-          </div>
 
-          {/* Kolom Kanan: Keranjang Belanja */}
-          <div className="lg:col-span-1">
-            <KeranjangBelanja
-              keranjangBelanja={keranjangBelanja}
-              totalQtyItems={totalQtyItems}
-              totalEstimasiModal={totalEstimasiModal}
-              namaAgen={namaAgen}
-              produkBerubah={produkKeranjangBerubah}
-              jumlahDraf={daftarDraf.length}
-              onUbahNamaAgen={setNamaAgen}
-              onUbahQty={ubahQtyItem}
-              onHapusItem={hapusItemKeranjang}
-              onResetKeranjang={() => {
-                // panggil fungsi reset keranjang jika ada
-              }}
-              onSimpanDraf={simpanKeDraf}
-              onBukaDraf={() => setTampilModalDraf(true)}
-            />
+            {/* Kolom Kanan: Keranjang Belanja */}
+            <div className={`h-[calc(100dvh-300px)] min-h-[300px] lg:col-span-1 lg:h-auto lg:min-h-0 ${
+              tabMobile === 'KERANJANG' ? 'block' : 'hidden'
+            } lg:block`}>
+              <KeranjangBelanja
+                keranjangBelanja={keranjangBelanja}
+                totalQtyItems={totalQtyItems}
+                totalEstimasiModal={totalEstimasiModal}
+                namaAgen={namaAgen}
+                produkBerubah={produkKeranjangBerubah}
+                jumlahDraf={daftarDraf.length}
+                onUbahNamaAgen={setNamaAgen}
+                onUbahQty={ubahQtyItem}
+                onHapusItem={hapusItemKeranjang}
+                onResetKeranjang={resetKeranjang}
+                onSimpanDraf={simpanKeDraf}
+                onBukaDraf={() => setTampilModalDraf(true)}
+              />
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         /* --- TAB 2: KHUSUS RIWAYAT KULAKAN --- */
         <RiwayatKulakanTab daftarRiwayat={daftarRiwayatKulakan} />

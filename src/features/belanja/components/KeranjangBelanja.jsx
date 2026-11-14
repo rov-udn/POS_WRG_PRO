@@ -17,7 +17,7 @@ export default function KeranjangBelanja({
   onBukaDraf
 }) {
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 border-b border-emerald-100">
         <h2 className="font-bold text-emerald-900 text-base flex items-center gap-2">
@@ -79,7 +79,7 @@ export default function KeranjangBelanja({
       )}
 
       {/* Daftar Item Rencana Belanja */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-[calc(100vh-360px)]">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2.5 lg:max-h-[calc(100vh-360px)]">
         {keranjangBelanja.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center text-gray-400">
             <span className="text-3xl mb-2">🚛</span>
@@ -150,7 +150,7 @@ export default function KeranjangBelanja({
       </div>
 
       {/* Footer Ringkasan Modal & Tombol Simpan Draf */}
-      <div className="p-4 bg-gray-50 border-t border-gray-200 space-y-3">
+      <div className="hidden p-4 bg-gray-50 border-t border-gray-200 space-y-3 lg:block">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Estimasi Uang Modal:</span>
           <span className="text-xl font-black text-emerald-700 tracking-tight">
@@ -169,6 +169,25 @@ export default function KeranjangBelanja({
           }`}
         >
           <span>💾</span> Simpan ke Draf Belanja
+        </button>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-16 z-30 flex items-center justify-between gap-2 border-t border-gray-200 bg-white/95 px-3 py-2 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+        <div className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+            Estimasi Modal · {formatQuantity(totalQtyItems)} item
+          </span>
+          <span className="block truncate text-base font-black leading-tight text-emerald-700">
+            Rp{totalEstimasiModal.toLocaleString('id-ID')}
+          </span>
+        </div>
+        <button
+          type="button"
+          disabled={keranjangBelanja.length === 0}
+          onClick={onSimpanDraf}
+          className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+        >
+          Simpan Draf
         </button>
       </div>
     </div>

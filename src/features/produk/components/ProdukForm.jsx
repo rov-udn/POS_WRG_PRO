@@ -9,7 +9,9 @@ import {
   hitungHargaBeliSatuan,
   hitungStokUtama,
   normalisasiRasioSatuan,
-  normalisasiVarianProduk
+  normalisasiVarianProduk,
+  formatRupiah,
+  hitungMarginPersen
 } from '../utils/produkUtils';
 import { cekPotensiRugiSatuan } from '../utils/cekRugi';
 import { Alert } from '../../../components/ui/Alert';
@@ -540,6 +542,12 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
                     disabled={isBaseItem}
                   />
                 </div>
+
+                <p className="text-xs font-semibold text-emerald-700">
+                  Margin {satuan.namaSatuan}: {formatRupiah(
+                    (Number(satuan.hargaJual) || 0) - (Number(satuan.hargaBeli) || 0)
+                  )} ({hitungMarginPersen(satuan.hargaBeli, satuan.hargaJual)}%)
+                </p>
 
                 {satuanBerpotensiRugi && (
                   <Alert variant="warning">
