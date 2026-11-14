@@ -14,9 +14,58 @@ import {
 import { cekPotensiRugiSatuan } from '../utils/cekRugi';
 import { Alert } from '../../../components/ui/Alert';
 
+const dapatkanSatuanDasarProduk = (produk, listSatuan) => {
+  const satuanDasarTersimpan = listSatuan.find((satuan) => satuan.isBase === true);
+  if (satuanDasarTersimpan) return satuanDasarTersimpan;
+
+  const namaSatuanTerkecil = String(produk?.satuanTerkecil || '').trim().toLocaleLowerCase('id-ID');
+  const satuanTerkecilTersimpan = listSatuan.find(
+    (satuan) => String(satuan.namaSatuan || '').trim().toLocaleLowerCase('id-ID') === namaSatuanTerkecil
+  );
+  if (satuanTerkecilTersimpan) return satuanTerkecilTersimpan;
+
+  return listSatuan.reduce((terkecil, satuan) => {
+    const rasio = Number(satuan.rasio);
+    if (!Number.isFinite(rasio) || rasio <= 0) return terkecil;
+    return !terkecil || rasio < Number(terkecil.rasio) ? satuan : terkecil;
+  }, null) || listSatuan[0];
+};
+
+const buatListSatuanForm = (produk) => {
+  const listSatuanAwal = Array.isArray(produk?.listSatuan)
+    ? produk.listSatuan.map((satuan) => ({
+        ...satuan,
+        idSatuan: satuan.idSatuan || buatIdSatuan()
+      }))
+    : [];
+  const listSatuan = listSatuanAwal.length > 0
+    ? listSatuanAwal
+    : [{
+        idSatuan: buatIdSatuan(),
+        namaSatuan: 'Pcs',
+        barcode: '',
+        hargaBeli: 0,
+        hargaJual: 0,
+        rasio: 1,
+        isBase: true
+      }];
+
+  return normalisasiRasioSatuan(
+    listSatuan,
+    dapatkanSatuanDasarProduk(produk, listSatuan)?.idSatuan
+  );
+};
+
+const dapatkanIdSatuanDasarAwal = (produk) => {
+  const listSatuan = Array.isArray(produk?.listSatuan) ? produk.listSatuan : [];
+  return dapatkanSatuanDasarProduk(produk, listSatuan)?.idSatuan || null;
+};
+
 export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
-  const [namaProduk, setNamaProduk] = useState(dataAwal?.namaProduk || '');
-  const [kategori, setKategori] = useState(dataAwal?.kategori || MASTER_KATEGORI_AWAL[0].label);
+  const [namaProduk, setNamaProduk] = useState(dataAwal?.namaProduk ?? '');
+  const [kategori, setKategori] = useState(
+    dataAwal ? dataAwal.kategori ?? '' : MASTER_KATEGORI_AWAL[0].label
+  );
   const [punyaVarian, setPunyaVarian] = useState(dataAwal?.punyaVarian === true);
   const [inputVarian, setInputVarian] = useState(() =>
     normalisasiVarianProduk(dataAwal?.varian).join(', ')
@@ -33,38 +82,19 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
     return saved ? JSON.parse(saved) : MASTER_KATEGORI_AWAL;
   });
 
-  const [listSatuan, setListSatuan] = useState(() => {
-    if (dataAwal?.listSatuan && dataAwal.listSatuan.length > 0) {
-      const satuanTersimpan = dataAwal.listSatuan.map((s) => ({
-        ...s,
-        idSatuan: s.idSatuan || buatIdSatuan()
-      }));
-      return normalisasiRasioSatuan(satuanTersimpan);
-    }
-    return normalisasiRasioSatuan([
-      {
-        idSatuan: buatIdSatuan(),
-        namaSatuan: 'Pcs',
-        barcode: '',
-        hargaBeli: 0,
-        hargaJual: 0,
-        rasio: 1,
-        isBase: true
-      }
-    ]);
-  });
+  const [listSatuan, setListSatuan] = useState(() => buatListSatuanForm(dataAwal));
 
   const [idSatuanAcuanModal, setIdSatuanAcuanModal] = useState(() => {
+    const satuanAcuanHarga = listSatuan.find(
+      (satuan) => satuan.isAcuanHargaModal === true
+    );
     const satuanDasar = listSatuan.find((satuan) => satuan.isBase);
-    return satuanDasar?.idSatuan || listSatuan[0]?.idSatuan || '';
+    return satuanAcuanHarga?.idSatuan || satuanDasar?.idSatuan || listSatuan[0]?.idSatuan || '';
   });
 
-  const [idSatuanDasarAwal] = useState(() => {
-    const listAwal = dataAwal?.listSatuan || [];
-    return listAwal.find((satuan) => satuan.isBase)?.idSatuan ||
-      listAwal[listAwal.length - 1]?.idSatuan ||
-      null;
-  });
+  const [idSatuanDasarAwal, setIdSatuanDasarAwal] = useState(() =>
+    dapatkanIdSatuanDasarAwal(dataAwal)
+  );
 
   // State Modal Tambah Satuan / Kategori Cepat
   const [modalTambahSatuanAktif, setModalTambahSatuanAktif] = useState(false);
@@ -73,6 +103,29 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
 
   const [modalTambahKategoriAktif, setModalTambahKategoriAktif] = useState(false);
   const [labelKategoriBaru, setLabelKategoriBaru] = useState('');
+
+  useEffect(() => {
+    const listSatuanAwal = buatListSatuanForm(dataAwal);
+    const satuanDasarAwal = listSatuanAwal.find((satuan) => satuan.isBase);
+    const satuanAcuanHargaAwal = listSatuanAwal.find(
+      (satuan) => satuan.isAcuanHargaModal === true
+    ) || satuanDasarAwal;
+
+    setNamaProduk(dataAwal?.namaProduk ?? '');
+    setKategori(dataAwal ? dataAwal.kategori ?? '' : MASTER_KATEGORI_AWAL[0].label);
+    setPunyaVarian(dataAwal?.punyaVarian === true);
+    setInputVarian(normalisasiVarianProduk(dataAwal?.varian).join(', '));
+    setListSatuan(listSatuanAwal);
+    setIdSatuanAcuanModal(
+      satuanAcuanHargaAwal?.idSatuan || listSatuanAwal[0]?.idSatuan || ''
+    );
+    setIdSatuanDasarAwal(dapatkanIdSatuanDasarAwal(dataAwal));
+    setModalTambahSatuanAktif(false);
+    setTargetKategoriBaru('menengah');
+    setNamaSatuanBaru('');
+    setModalTambahKategoriAktif(false);
+    setLabelKategoriBaru('');
+  }, [dataAwal]);
 
   useEffect(() => {
     localStorage.setItem('warung_master_satuan', JSON.stringify(masterSatuan));
@@ -231,6 +284,8 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
         ...satuan,
         hargaBeli: Number(satuan.hargaBeli) || 0,
         hargaJual: Number(satuan.hargaJual) || 0,
+        isBase: satuan.isBase === true,
+        isAcuanHargaModal: satuan.idSatuan === idSatuanAcuanModal,
         rasio: satuan.isBase
           ? 1
           : Number.isFinite(Number(satuan.rasio)) && Number(satuan.rasio) > 0
@@ -269,6 +324,10 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
                 required
                 className="flex-1 rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
               >
+                <option value="" disabled>Pilih kategori</option>
+                {kategori && !masterKategori.some((item) => item.label === kategori) && (
+                  <option value={kategori}>{kategori}</option>
+                )}
                 {masterKategori.map((item) => (
                   <option key={item.id} value={item.label}>
                     {item.label}
@@ -363,11 +422,11 @@ export default function ProdukForm({ isOpen, onClose, dataAwal, onSubmit }) {
                   isBaseItem ? 'bg-blue-50/40 border-blue-200' : 'bg-gray-50 border-gray-200'
                 }`}
               >
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
                     {labelPosisi}{!isBaseItem && !rasioBelumDiisi && ` (${rasio}×)`}
                   </span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                     <label className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold cursor-pointer">
                       <input
                         type="radio"

@@ -48,7 +48,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 240000,
       hargaJual: 280000,
       rasio: 24,
-      isBase: false
+      isBase: false,
+      isAcuanHargaModal: true
     },
     {
       idSatuan: "SAT-002",
@@ -57,7 +58,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 61000,
       hargaJual: 72000,
       rasio: 6,
-      isBase: false
+      isBase: false,
+      isAcuanHargaModal: false
     },
     {
       idSatuan: "SAT-003",
@@ -66,7 +68,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 10000,
       hargaJual: 12500,
       rasio: 1,
-      isBase: true
+      isBase: true,
+      isAcuanHargaModal: false
     }
   ]
 };
@@ -214,6 +217,7 @@ Setiap satuan dapat mempunyai:
 - harga jual
 - rasio jumlah satuan dasar dalam satu satuan tersebut
 - penanda apakah satuan tersebut merupakan satuan dasar
+- penanda apakah satuan tersebut menjadi acuan harga modal
 
 ### `idSatuan`
 
@@ -308,6 +312,18 @@ Dus  → false
 Pack → false
 Pcs  → true
 ```
+
+### `isAcuanHargaModal`
+
+Menandai satu satuan yang menjadi acuan harga modal di form produk. Tepat satu
+satuan dapat bernilai `true`; saat data lama atau impor belum memiliki penanda
+ini, form menggunakan satuan dasar sebagai acuan.
+
+```js
+isAcuanHargaModal: true
+```
+
+Harga jual tetap disimpan dan diatur per satuan melalui `hargaJual`.
 
 ---
 
