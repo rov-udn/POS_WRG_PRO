@@ -1,5 +1,6 @@
 import QuantityInput from '../../../components/ui/QuantityInput';
 import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
+import { hitungMarginPersen } from '../../produk/utils/produkUtils';
 
 export default function KeranjangKasir({
   keranjang,
@@ -19,7 +20,7 @@ export default function KeranjangKasir({
   onLanjutPembayaran
 }) {
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Header Keranjang */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
         <h2 className="font-bold text-gray-800 text-base flex items-center gap-2">
@@ -70,7 +71,7 @@ export default function KeranjangKasir({
       )}
 
       {/* Item Keranjang */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-[calc(100vh-360px)]">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2.5 lg:max-h-[calc(100vh-360px)]">
         {keranjang.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center text-gray-400">
             <span className="text-3xl mb-2">🛍️</span>
@@ -139,6 +140,16 @@ export default function KeranjangKasir({
                   <span className="text-xs font-extrabold text-blue-700">
                     Rp{item.subtotal.toLocaleString('id-ID')}
                   </span>
+                  <div className="text-[10px] font-semibold text-emerald-700">
+                    Margin Rp{(
+                      ((Number(item.hargaJualSatuan) || 0) -
+                        (Number(item.hargaBeliSatuan) || 0)) *
+                      (Number(item.qty) || 0)
+                    ).toLocaleString('id-ID')} ({hitungMarginPersen(
+                      item.hargaBeliSatuan,
+                      item.hargaJualSatuan
+                    )}%)
+                  </div>
                 </div>
               </div>
             </div>
@@ -147,7 +158,7 @@ export default function KeranjangKasir({
       </div>
 
       {/* Footer Ringkasan & Tombol Aksi */}
-      <div className="p-4 bg-gray-50 border-t border-gray-200 space-y-2">
+      <div className="hidden p-4 bg-gray-50 border-t border-gray-200 space-y-2 lg:block">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Belanja:</span>
           <span className="text-xl font-black text-blue-600 tracking-tight">
@@ -188,6 +199,38 @@ export default function KeranjangKasir({
             }`}
           >
             <span>💳</span> Bayar
+          </button>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-16 z-30 flex items-center justify-between gap-2 border-t border-gray-200 bg-white/95 px-3 py-2 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+        <div className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+            Total · {formatQuantity(totalQtyItems)} item
+          </span>
+          <span className="block truncate text-base font-black leading-tight text-blue-700">
+            Rp{totalBayar.toLocaleString('id-ID')}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            disabled={keranjang.length === 0}
+            onClick={() => {
+              const label = window.prompt('Masukkan nama/label draf (opsional):', `Pelanggan ${daftarDraf.length + 1}`);
+              if (label !== null) onTahanTransaksi(label);
+            }}
+            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Tahan
+          </button>
+          <button
+            type="button"
+            disabled={keranjang.length === 0}
+            onClick={onLanjutPembayaran}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            Bayar
           </button>
         </div>
       </div>

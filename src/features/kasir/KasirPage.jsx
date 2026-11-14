@@ -46,6 +46,7 @@ export default function KasirPage({ profil, pengguna }) {
   const [kataKunci, setKataKunci] = useState('');
   const [kategoriAktif, setKategoriAktif] = useState('');
   const [modeKasir, setModeKasir] = useState('PENJUALAN');
+  const [tabMobile, setTabMobile] = useState('DAFTAR');
   const [tampilModalPembayaran, setTampilModalPembayaran] = useState(false);
   const [tampilModalDraf, setTampilModalDraf] = useState(false);
   const searchInputRef = useRef(null);
@@ -137,7 +138,7 @@ export default function KasirPage({ profil, pengguna }) {
   });
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto min-h-screen pb-24 md:pb-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto min-h-screen pb-36 lg:pb-6">
       
       {/* Title / Header Menu */}
       <div className="flex items-center justify-between mb-4">
@@ -178,12 +179,37 @@ export default function KasirPage({ profil, pengguna }) {
         </div>
       ) : (
         <>
-          <QuickButtonEceran
-            daftarProduk={daftarProduk}
-            onTambah={tambahEceranCepat}
-          />
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-gray-100 p-1 lg:hidden">
+            <button
+              type="button"
+              aria-pressed={tabMobile === 'DAFTAR'}
+              onClick={() => setTabMobile('DAFTAR')}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                tabMobile === 'DAFTAR' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
+              }`}
+            >
+              Daftar Barang
+            </button>
+            <button
+              type="button"
+              aria-pressed={tabMobile === 'KERANJANG'}
+              onClick={() => setTabMobile('KERANJANG')}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                tabMobile === 'KERANJANG' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
+              }`}
+            >
+              Keranjang Saya ({keranjang.length})
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+            <div className={`lg:col-span-7 xl:col-span-8 space-y-4 ${
+              tabMobile === 'DAFTAR' ? 'block' : 'hidden'
+            } lg:block`}>
+              <QuickButtonEceran
+                daftarProduk={daftarProduk}
+                onTambah={tambahEceranCepat}
+              />
               <PencarianProduk
                 kataKunci={kataKunci}
                 onUbahKataKunci={setKataKunci}
@@ -200,9 +226,12 @@ export default function KasirPage({ profil, pengguna }) {
                 kataKunci={kataKunci}
                 kategoriAktif={kategoriAktif}
                 onPilihProduk={tambahKeKeranjang}
+                keranjang={keranjang}
               />
             </div>
-            <div className="lg:col-span-5 xl:col-span-4 sticky top-4">
+            <div className={`h-[calc(100dvh-280px)] min-h-[280px] lg:col-span-5 xl:col-span-4 lg:h-auto lg:min-h-0 lg:sticky lg:top-4 ${
+              tabMobile === 'KERANJANG' ? 'block' : 'hidden'
+            } lg:block`}>
               <KeranjangKasir
                 keranjang={keranjang}
                 totalQtyItems={totalQtyItems}

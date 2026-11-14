@@ -16,6 +16,9 @@ const KUNCI_STORAGE_RIWAYAT_BELANJA = 'pos_warung_riwayat_belanja_agen'; // Key 
 
 export function useBelanjaAgen(storeId) {
   const KUNCI_STORAGE_PRODUK = buatKunciStorageProduk(storeId);
+  const KUNCI_STORAGE_KERANJANG_BELANJA = storeId
+    ? `pos_warung_keranjang_belanja:${encodeURIComponent(String(storeId))}`
+    : null;
   const { fitur } = useAppMode();
   const [daftarProduk, setDaftarProduk] = useState(() => {
     try {
@@ -27,7 +30,17 @@ export function useBelanjaAgen(storeId) {
     }
   });
 
-  const [keranjangBelanja, setKeranjangBelanja] = useState([]);
+  const [keranjangBelanja, setKeranjangBelanja] = useState(() => {
+    try {
+      if (!KUNCI_STORAGE_KERANJANG_BELANJA) return [];
+      const data = localStorage.getItem(KUNCI_STORAGE_KERANJANG_BELANJA);
+      const keranjang = data ? JSON.parse(data) : [];
+      return Array.isArray(keranjang) ? keranjang : [];
+    } catch (error) {
+      console.error('Gagal memuat keranjang belanja tersimpan:', error);
+      return [];
+    }
+  });
   const [namaAgen, setNamaAgen] = useState('');
   
   const [daftarDraf, setDaftarDraf] = useState(() => {
@@ -70,6 +83,18 @@ export function useBelanjaAgen(storeId) {
       window.removeEventListener(EVENT_PRODUK_DIPERBARUI, muatProdukTerbaru);
     };
   }, [KUNCI_STORAGE_PRODUK]);
+
+  useEffect(() => {
+    if (!KUNCI_STORAGE_KERANJANG_BELANJA) return;
+    try {
+      localStorage.setItem(
+        KUNCI_STORAGE_KERANJANG_BELANJA,
+        JSON.stringify(keranjangBelanja)
+      );
+    } catch (error) {
+      console.error('Gagal menyimpan keranjang belanja:', error);
+    }
+  }, [KUNCI_STORAGE_KERANJANG_BELANJA, keranjangBelanja]);
 
   useEffect(() => {
     try {
@@ -167,6 +192,10 @@ export function useBelanjaAgen(storeId) {
     setKeranjangBelanja((prev) =>
       prev.filter((item) => !(item.idProduk === idProduk && item.idSatuan === idSatuan))
     );
+  };
+
+  const resetKeranjang = () => {
+    setKeranjangBelanja([]);
   };
 
   const totalEstimasiModal = keranjangBelanja.reduce(
@@ -416,6 +445,7 @@ export function useBelanjaAgen(storeId) {
     tambahKeKeranjang,
     ubahQtyItem,
     hapusItemKeranjang,
+    resetKeranjang,
     simpanKeDraf,
     toggleStatusKosongDraf,
     ubahQtyRealDraf,

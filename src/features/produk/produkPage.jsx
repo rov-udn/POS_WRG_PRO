@@ -6,6 +6,7 @@ import ProdukForm from './components/ProdukForm';
 import ImportProdukJson from './components/ImportProdukJson';
 import FilterKategori from '../../components/ui/FilterKategori';
 import { filterProdukKurangLengkap, filterProdukRugi } from './utils/cekRugi';
+import { formatRupiah, hitungMarginPersen } from './utils/produkUtils';
 
 export default function ProdukPage({ storeId }) {
   const daftarRef = useRef(null);
@@ -177,6 +178,10 @@ export default function ProdukPage({ storeId }) {
           {daftarProdukTampil.map((item) => {
             const detailTerbuka = produkDipilih?.idProduk === item.idProduk;
             const idDetail = `detail-produk-${item.idProduk}`;
+            const satuanDasar = item.listSatuan?.find((satuan) => satuan.isBase)
+              || item.listSatuan?.[0];
+            const marginRupiah = (Number(satuanDasar?.hargaJual) || 0)
+              - (Number(satuanDasar?.hargaBeli) || 0);
 
             return (
               <div key={item.idProduk} className="transition-colors">
@@ -203,6 +208,12 @@ export default function ProdukPage({ storeId }) {
                         {item.kategori || 'Tanpa kategori'}
                         {item.satuanTerkecil ? ` · ${item.satuanTerkecil}` : ''}
                       </span>
+                      {satuanDasar && (
+                        <span className="mt-1 block truncate text-xs font-semibold text-emerald-700">
+                          Margin {satuanDasar.namaSatuan}: {formatRupiah(marginRupiah)} (
+                          {hitungMarginPersen(satuanDasar.hargaBeli, satuanDasar.hargaJual)}%)
+                        </span>
+                      )}
                     </span>
                     <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${
                       detailTerbuka ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
