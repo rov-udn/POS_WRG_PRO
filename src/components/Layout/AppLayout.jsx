@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import BottomNavigation from './BottomNavigation';
@@ -19,6 +19,7 @@ const DAFTAR_MENU = [
   { id: 'setting', label: 'Pengaturan', ikon: '⚙️' },
   { id: 'approval', label: 'Approval', ikon: '✅' }
 ];
+const PENANDA_BACK_KELUAR = '__posWrgDoubleBackExit';
 
 export default function AppLayout({
   children,
@@ -31,6 +32,9 @@ export default function AppLayout({
 }) {
   const [modalTutupShift, setModalTutupShift] = useState(false);
   const [pesanErrorShift, setPesanErrorShift] = useState('');
+  const [tampilkanToastKeluar, setTampilkanToastKeluar] = useState(false);
+  const backPertamaRef = useRef(false);
+  const timerBackRef = useRef(null);
   const daftarMenu = DAFTAR_MENU.filter((menu) => daftarMenuDiizinkan.includes(menu.id));
   const menuSaatIni = daftarMenu.find((menu) => menu.id === menuAktif);
   const judulHalaman = menuSaatIni ? menuSaatIni.label : 'POS Warung';
@@ -90,6 +94,50 @@ export default function AppLayout({
     cobaSinkronkanProduk();
     return () => window.removeEventListener('online', cobaSinkronkanProduk);
   }, [profil?.store_id]);
+
+  useEffect(() => {
+    if (menuAktif !== 'kasir') return undefined;
+
+    const tandaiRiwayatAplikasi = () => {
+      window.history.pushState(
+        { [PENANDA_BACK_KELUAR]: true },
+        '',
+        window.location.href
+      );
+    };
+
+    if (!window.history.state?.[PENANDA_BACK_KELUAR]) {
+      tandaiRiwayatAplikasi();
+    }
+
+    const tanganiBack = () => {
+      if (backPertamaRef.current) {
+        window.clearTimeout(timerBackRef.current);
+        timerBackRef.current = null;
+        backPertamaRef.current = false;
+        setTampilkanToastKeluar(false);
+        return;
+      }
+
+      backPertamaRef.current = true;
+      setTampilkanToastKeluar(true);
+      tandaiRiwayatAplikasi();
+      timerBackRef.current = window.setTimeout(() => {
+        backPertamaRef.current = false;
+        timerBackRef.current = null;
+        setTampilkanToastKeluar(false);
+      }, 2000);
+    };
+
+    window.addEventListener('popstate', tanganiBack);
+    return () => {
+      window.removeEventListener('popstate', tanganiBack);
+      window.clearTimeout(timerBackRef.current);
+      timerBackRef.current = null;
+      backPertamaRef.current = false;
+      setTampilkanToastKeluar(false);
+    };
+  }, [menuAktif]);
 
   useEffect(() => {
     if (!isKasir || !pengguna?.uid) return;
@@ -156,6 +204,15 @@ export default function AppLayout({
           menuAktif={menuAktif}
           onPilihMenu={onPilihMenu}
         />
+        {tampilkanToastKeluar && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-20 left-1/2 z-[90] -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-3 text-center text-sm font-medium text-white shadow-lg md:bottom-6"
+          >
+            Tekan sekali lagi untuk keluar aplikasi
+          </div>
+        )}
         {isKasir && (
           <EndShiftModal
             key={modalTutupShift ? 'open' : 'closed'}
