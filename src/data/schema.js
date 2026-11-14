@@ -22,7 +22,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 240000, // Harga modal per Dus
       hargaJual: 280000, // Harga jual per Dus
       rasio: 24,          // 1 Dus = 24 Pcs (satuan dasar aktif)
-      isBase: false
+      isBase: false,
+      isAcuanHargaModal: true
     },
     {
       idSatuan: "SAT-002",
@@ -31,7 +32,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 61000,  // Harga modal per Pack
       hargaJual: 72000,  // Harga jual per Pack
       rasio: 6,          // 1 Pack = 6 Pcs
-      isBase: false
+      isBase: false,
+      isAcuanHargaModal: false
     },
     {
       idSatuan: "SAT-003",
@@ -40,7 +42,8 @@ export const SINGLE_PRODUCT_SCHEMA = {
       hargaBeli: 10000,  // Harga modal per Pcs (Hasil dari: Harga Dus / Rasio Dus)
       hargaJual: 12500,  // Harga jual eceran
       rasio: 1,          // Satuan dasar aktif selalu ber-rasio 1
-      isBase: true
+      isBase: true,
+      isAcuanHargaModal: false
     }
   ]
 };
