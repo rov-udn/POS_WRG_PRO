@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { beriTahuProdukDiperbarui, buatIdProduk } from '../utils/produkUtils';
 import { buatKunciStorageProduk } from '../utils/produkStorage';
+import { antrikanPerubahanProdukDanSinkronkan } from '../../../lib/services/produkSyncService';
 
 export function useProduk(storeId) {
   const kunciStorageProduk = buatKunciStorageProduk(storeId);
@@ -26,12 +27,23 @@ export function useProduk(storeId) {
   useEffect(() => {
     try {
       if (!kunciStorageProduk) return;
+      const dataSebelumnya = localStorage.getItem(kunciStorageProduk);
+      let produkSebelumnya = [];
+      if (dataSebelumnya) {
+        const hasilBaca = JSON.parse(dataSebelumnya);
+        if (Array.isArray(hasilBaca)) produkSebelumnya = hasilBaca;
+      }
       localStorage.setItem(kunciStorageProduk, JSON.stringify(daftarProdukAsli));
       beriTahuProdukDiperbarui();
+      void antrikanPerubahanProdukDanSinkronkan(
+        storeId,
+        produkSebelumnya,
+        daftarProdukAsli
+      );
     } catch (error) {
       console.error("Gagal menyimpan data ke localStorage:", error);
     }
-  }, [daftarProdukAsli, kunciStorageProduk]);
+  }, [daftarProdukAsli, kunciStorageProduk, storeId]);
 
   // Logika penyaringan (produk tersaring) dipindah ke dalam hook
   const produkTersaring = useMemo(() => {

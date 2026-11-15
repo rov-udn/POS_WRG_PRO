@@ -10,6 +10,7 @@ import {
 } from '../../produk/utils/produkUtils';
 import { beriTahuMenuNotificationsDiperbarui } from '../../../utils/menuNotifications';
 import { buatKunciStorageProduk } from '../../produk/utils/produkStorage';
+import { antrikanPerubahanProdukDanSinkronkan } from '../../../lib/services/produkSyncService';
 
 const KUNCI_STORAGE_RESTOCK = 'pos_warung_restock_logs';
 const KUNCI_STORAGE_ANTREAN = 'pos_warung_antrean_restock';
@@ -398,6 +399,11 @@ export function useGudang({ storeId, onAntreanRestockDiterima } = {}) {
     setDaftarProduk(daftarProdukBaru);
     localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukBaru));
     beriTahuProdukDiperbarui();
+    void antrikanPerubahanProdukDanSinkronkan(
+      storeId,
+      produkTerkini,
+      daftarProdukBaru
+    );
     if (fitur.ubahStok) {
       setRiwayatRestock((prev) => [...logBaruList, ...prev]);
     }
@@ -432,6 +438,11 @@ export function useGudang({ storeId, onAntreanRestockDiterima } = {}) {
       localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarBaru));
       setDaftarProduk(daftarBaru);
       beriTahuProdukDiperbarui();
+      void antrikanPerubahanProdukDanSinkronkan(
+        storeId,
+        produkTerkini,
+        daftarBaru
+      );
 
       const namaProduk = produkTarget ? produkTarget.namaProduk : 'Produk';
 
