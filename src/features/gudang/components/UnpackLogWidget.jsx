@@ -9,6 +9,7 @@ import {
   KUNCI_STORAGE_QUICK_BUTTONS
 } from '../../kasir/utils/unpackItems';
 import { buatKunciStorageProduk } from '../../produk/utils/produkStorage';
+import { antrikanPerubahanProdukDanSinkronkan } from '../../../lib/services/produkSyncService';
 
 const KUNCI_STORAGE_UNPACK = 'active_unpack_items';
 const KUNCI_STORAGE_SHRINKAGE = 'pos_warung_shrinkage_logs';
@@ -228,6 +229,11 @@ export default function UnpackLogWidget({ storeId }) {
       setKataKunci('');
       window.dispatchEvent(new Event(EVENT_UNPACK_DIPERBARUI));
       beriTahuProdukDiperbarui();
+      void antrikanPerubahanProdukDanSinkronkan(
+        storeId,
+        produkTerkini,
+        daftarProdukBaru
+      );
     } catch (error) {
       console.error('Gagal membuka kemasan grosir:', error);
       try {

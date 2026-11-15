@@ -11,6 +11,7 @@ import {
   hitungRasioSatuanKeBasisSaatIni
 } from '../../produk/utils/produkUtils';
 import { buatKunciStorageProduk } from '../../produk/utils/produkStorage';
+import { antrikanPerubahanProdukDanSinkronkan } from '../../../lib/services/produkSyncService';
 import {
   dapatkanUnpackTersedia,
   EVENT_UNPACK_DIPERBARUI,
@@ -109,13 +110,18 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
     localStorage.setItem(KUNCI_STORAGE_DRAF, JSON.stringify(drafBaru));
   };
 
-  const simpanProdukKeStorage = (produkBaru) => {
+  const simpanProdukKeStorage = (produkBaru, produkSebelumnya) => {
     setDaftarProduk(produkBaru);
     if (!KUNCI_STORAGE_PRODUK) {
       throw new Error('ID toko aktif tidak tersedia. Produk tidak dapat disimpan.');
     }
     localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(produkBaru));
     beriTahuProdukDiperbarui();
+    void antrikanPerubahanProdukDanSinkronkan(
+      storeId,
+      produkSebelumnya,
+      produkBaru
+    );
   };
 
   const tambahKeKeranjang = (produk, satuanPilihan) => {
@@ -593,7 +599,7 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       const riwayatBaru = [dataTransaksiBaru, ...riwayatLama];
       localStorage.setItem(KUNCI_STORAGE_TRANSAKSI, JSON.stringify(riwayatBaru));
       if (fiturAktif.ubahStok) {
-        simpanProdukKeStorage(daftarProdukBaru);
+        simpanProdukKeStorage(daftarProdukBaru, produkOperasional);
       }
       localStorage.removeItem(KUNCI_STORAGE_KERANJANG);
     } catch (e) {
@@ -795,6 +801,11 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
     if (fiturAktif.ubahStok) {
       setDaftarProduk(daftarProdukBaru);
       beriTahuProdukDiperbarui();
+      void antrikanPerubahanProdukDanSinkronkan(
+        storeId,
+        produkOperasional,
+        daftarProdukBaru
+      );
     }
     return true;
   };
