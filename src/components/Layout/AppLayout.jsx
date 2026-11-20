@@ -8,6 +8,12 @@ import { useSettings } from '../../features/setting/hooks/useSettings';
 import EndShiftModal from '../../features/kasir/components/EndShiftModal';
 import { mulaiShiftJikaBelumAda, tutupShift } from '../../features/laporan/utils/shiftStorage';
 import { sinkronkanProdukPending } from '../../lib/services/produkSyncService';
+import { sinkronkanPenjualanPending } from '../../lib/services/transaksiSyncService';
+import {
+  bacaArrayStorageKasir,
+  buatKunciStorageKasir,
+  EVENT_TRANSAKSI_KASIR_DIPERBARUI
+} from '../../features/kasir/utils/kasirStorage';
 
 const DAFTAR_MENU = [
   { id: 'produk', label: 'Produk', ikon: '📦' },
@@ -20,6 +26,30 @@ const DAFTAR_MENU = [
   { id: 'approval', label: 'Approval', ikon: '✅' }
 ];
 const PENANDA_BACK_KELUAR = '__posWrgDoubleBackExit';
+const STATUS_SYNC_KOSONG = {
+  pending: 0,
+  syncing: 0,
+  synced: 0,
+  failed: 0,
+  error: false
+};
+
+function bacaRingkasanSinkronisasi(kunciTransaksi, storeId) {
+  try {
+    const transaksi = bacaArrayStorageKasir(kunciTransaksi, 'Riwayat transaksi');
+    return transaksi
+      .filter((item) => item.store_id === storeId && item.tipeTransaksi !== 'RETUR_TUKAR')
+      .reduce((ringkasan, item) => {
+        if (Object.prototype.hasOwnProperty.call(ringkasan, item.statusSync)) {
+          ringkasan[item.statusSync] += 1;
+        }
+        return ringkasan;
+      }, { ...STATUS_SYNC_KOSONG });
+  } catch (error) {
+    console.error('Gagal membaca ringkasan sinkronisasi transaksi:', error);
+    return { ...STATUS_SYNC_KOSONG, error: true };
+  }
+}
 
 export default function AppLayout({
   children,
@@ -33,6 +63,12 @@ export default function AppLayout({
   const [modalTutupShift, setModalTutupShift] = useState(false);
   const [pesanErrorShift, setPesanErrorShift] = useState('');
   const [tampilkanToastKeluar, setTampilkanToastKeluar] = useState(false);
+  const kunciStorageTransaksi = buatKunciStorageKasir('transactions', {
+    storeId: profil?.store_id
+  });
+  const [statusSinkronisasiTransaksi, setStatusSinkronisasiTransaksi] = useState(
+    () => bacaRingkasanSinkronisasi(kunciStorageTransaksi, profil?.store_id)
+  );
   const backPertamaRef = useRef(false);
   const timerBackRef = useRef(null);
   const daftarMenu = DAFTAR_MENU.filter((menu) => daftarMenuDiizinkan.includes(menu.id));
@@ -81,12 +117,43 @@ export default function AppLayout({
   const isKasir = profil.role === 'karyawan';
 
   useEffect(() => {
+    const muatRingkasan = () => {
+      setStatusSinkronisasiTransaksi(
+        bacaRingkasanSinkronisasi(kunciStorageTransaksi, profil?.store_id)
+      );
+    };
+    const tanganiStorage = (event) => {
+      if (event.key && event.key !== kunciStorageTransaksi) return;
+      muatRingkasan();
+    };
+
+    muatRingkasan();
+    window.addEventListener('storage', tanganiStorage);
+    window.addEventListener(EVENT_TRANSAKSI_KASIR_DIPERBARUI, muatRingkasan);
+    return () => {
+      window.removeEventListener('storage', tanganiStorage);
+      window.removeEventListener(EVENT_TRANSAKSI_KASIR_DIPERBARUI, muatRingkasan);
+    };
+  }, [kunciStorageTransaksi, profil?.store_id]);
+
+  const kirimAntreanTransaksiManual = () => {
+    if (!profil?.store_id || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+    sinkronkanPenjualanPending(profil.store_id).catch((error) => {
+      console.error('Gagal mengirim antrean transaksi secara manual.', error);
+      setStatusSinkronisasiTransaksi((sebelumnya) => ({ ...sebelumnya, error: true }));
+    });
+  };
+
+  useEffect(() => {
     if (!profil?.store_id) return undefined;
 
     const cobaSinkronkanProduk = () => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       sinkronkanProdukPending(profil.store_id).catch((error) => {
         console.error('Gagal melanjutkan sinkronisasi produk tertunda.', error);
+      });
+      sinkronkanPenjualanPending(profil.store_id).catch((error) => {
+        console.error('Gagal melanjutkan sinkronisasi transaksi penjualan tertunda.', error);
       });
     };
 
@@ -147,7 +214,7 @@ export default function AppLayout({
   }, [isKasir, pengguna?.uid, namaPengguna]);
 
   const simpanDanTutupShift = (cashActual) => {
-    tutupShift({ idKasir: pengguna.uid, cashActual });
+    tutupShift({ idKasir: pengguna.uid, cashActual, storeId: profil.store_id });
   };
   const bukaModalTutupShift = () => {
     try {
@@ -174,6 +241,8 @@ export default function AppLayout({
           onKeluar={onKeluar}
           onTutupShift={bukaModalTutupShift}
           isKasir={isKasir}
+          statusSinkronisasiTransaksi={statusSinkronisasiTransaksi}
+          onKirimAntreanTransaksi={kirimAntreanTransaksiManual}
         />
 
         {/* Konten Utama */}

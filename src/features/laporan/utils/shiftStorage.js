@@ -1,5 +1,9 @@
+import {
+  bacaArrayStorageKasir,
+  buatKunciStorageKasir
+} from '../../kasir/utils/kasirStorage';
+
 export const KUNCI_STORAGE_SHIFT = 'pos_warung_shift_data';
-const KUNCI_STORAGE_TRANSAKSI = 'pos_warung_transactions';
 
 function bacaDataShift() {
   const data = localStorage.getItem(KUNCI_STORAGE_SHIFT);
@@ -35,7 +39,7 @@ export function mulaiShiftJikaBelumAda(idKasir, namaKasir) {
   return shiftBaru;
 }
 
-export function tutupShift({ idKasir, cashActual }) {
+export function tutupShift({ idKasir, cashActual, storeId }) {
   if (!idKasir || !Number.isSafeInteger(cashActual) || cashActual < 0) {
     throw new Error('Data penutupan shift tidak valid.');
   }
@@ -44,8 +48,8 @@ export function tutupShift({ idKasir, cashActual }) {
   const shiftAktif = dataShift.shiftAktif[idKasir];
   if (!shiftAktif) throw new Error('Shift aktif tidak ditemukan.');
 
-  const transaksi = JSON.parse(localStorage.getItem(KUNCI_STORAGE_TRANSAKSI) || '[]');
-  if (!Array.isArray(transaksi)) throw new Error('Format data transaksi tidak valid.');
+  const kunciTransaksi = buatKunciStorageKasir('transactions', { storeId, idKasir });
+  const transaksi = bacaArrayStorageKasir(kunciTransaksi, 'Riwayat transaksi untuk tutup shift');
 
   const waktuMulai = new Date(shiftAktif.mulai).getTime();
   const waktuTutup = Date.now();

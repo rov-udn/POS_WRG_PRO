@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
 import { bagikanTeks } from '../../../utils/bagikanTeks';
+import {
+  bacaArrayStorageKasir,
+  buatKunciStorageKasir
+} from '../../kasir/utils/kasirStorage';
 
-const KUNCI_STORAGE_TRANSAKSI = 'pos_warung_transactions';
-
-export default function RiwayatPenjualan({ onPilihTransaksi }) {
+export default function RiwayatPenjualan({ storeId, idKasir, onPilihTransaksi }) {
   const [daftarTransaksi, setDaftarTransaksi] = useState([]);
   const [kataKunci, setKataKunci] = useState('');
   const [transaksiUntukDicetak, setTransaksiUntukDicetak] = useState(null);
@@ -16,18 +18,18 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
   const [bukaMenuFilter, setBukaMenuFilter] = useState(false);
 
   const menuFilterRef = useRef(null);
+  const kunciStorageTransaksi = buatKunciStorageKasir('transactions', { storeId, idKasir });
 
   // Ambil data transaksi dari localStorage
   useEffect(() => {
     try {
-      const data = localStorage.getItem(KUNCI_STORAGE_TRANSAKSI);
-      if (data) {
-        setDaftarTransaksi(JSON.parse(data));
-      }
+      setDaftarTransaksi(
+        bacaArrayStorageKasir(kunciStorageTransaksi, 'Riwayat transaksi')
+      );
     } catch (e) {
-      console.error("Gagal memuat data riwayat penjualan:", e);
+      console.error('Gagal memuat data riwayat penjualan:', e);
     }
-  }, []);
+  }, [kunciStorageTransaksi]);
 
   // Tutup menu filter saat klik di luar area
   useEffect(() => {
@@ -239,7 +241,7 @@ export default function RiwayatPenjualan({ onPilihTransaksi }) {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {transaksiTersaring.map((trx) => (
-                <tr key={trx.noStruk} className="hover:bg-gray-50">
+                <tr key={trx.idTransaksi || trx.noStruk} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap p-3 text-xs text-gray-500">
                     {new Date(trx.tanggal).toLocaleString('id-ID', {
                       dateStyle: 'medium',

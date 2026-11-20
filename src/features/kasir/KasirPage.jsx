@@ -270,6 +270,8 @@ export default function KasirPage({ profil, pengguna }) {
           {transaksiSelesai && (
             <Nota
               transaksi={transaksiSelesai}
+              namaToko={profil?.namaToko}
+              alamatToko={profil?.alamat}
               onTutupNota={resetTransaksiSelesai}
             />
           )}

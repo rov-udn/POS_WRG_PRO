@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ATURAN_MODE, KUNCI_STORAGE_MODE } from '../../../constants/configMode';
 import { db } from '../../../constants/firebaseConfig';
 import { calculateSubtotal, roundPreciseQuantity, roundQuantity } from '../../../utils/formatQuantity';
+import {
+  bacaArrayStorageKasir,
+  buatKunciStorageKasir,
+  hapusStorageKasir,
+  simpanArrayStorageKasir
+} from '../utils/kasirStorage';
+import { sinkronkanPenjualanPending } from '../../../lib/services/transaksiSyncService';
 import {
   apakahProdukBerubahDariSnapshot,
   beriTahuProdukDiperbarui,
@@ -19,10 +26,6 @@ import {
   bacaTombolCepat
 } from '../utils/unpackItems';
 
-const KUNCI_STORAGE_TRANSAKSI = 'pos_warung_transactions';
-const KUNCI_STORAGE_DRAF = 'pos_warung_draf_transactions';
-const KUNCI_STORAGE_KERANJANG = 'pos_warung_keranjang_kasir';
-
 const bacaAturanModeAktif = () => {
   const modeAktif = localStorage.getItem(KUNCI_STORAGE_MODE) || 'simple';
   const aturanMode = ATURAN_MODE[modeAktif];
@@ -32,33 +35,71 @@ const bacaAturanModeAktif = () => {
   return aturanMode;
 };
 
+const buatIdTransaksi = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Generator ID transaksi aman tidak tersedia di perangkat ini.');
+  }
+
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
 export function useKasir({ storeId, idKasir, namaKasir } = {}) {
-  const KUNCI_STORAGE_PRODUK = buatKunciStorageProduk(storeId);
+  const storeIdAktif = typeof storeId === 'string' ? storeId.trim() : '';
+  const idKasirAktif = typeof idKasir === 'string' ? idKasir.trim() : '';
+  const namaKasirAktif = typeof namaKasir === 'string' && namaKasir.trim()
+    ? namaKasir.trim()
+    : 'Kasir';
+  const KUNCI_STORAGE_PRODUK = buatKunciStorageProduk(storeIdAktif);
+  const KUNCI_STORAGE_TRANSAKSI = buatKunciStorageKasir('transactions', {
+    storeId: storeIdAktif,
+    idKasir
+  });
+  const KUNCI_STORAGE_DRAF = buatKunciStorageKasir('drafts', {
+    storeId: storeIdAktif,
+    idKasir
+  });
+  const KUNCI_STORAGE_KERANJANG = buatKunciStorageKasir('cart', {
+    storeId: storeIdAktif,
+    idKasir
+  });
+  const [keranjangAwal] = useState(() => {
+    try {
+      return {
+        items: bacaArrayStorageKasir(KUNCI_STORAGE_KERANJANG, 'Keranjang kasir')
+          .map((item) => ({
+            ...item,
+            qty: roundQuantity(item.qty),
+            subtotal: calculateSubtotal(item.hargaJualSatuan, item.qty)
+          })),
+        storageValid: true
+      };
+    } catch (error) {
+      console.error('Gagal memuat keranjang kasir:', error);
+      return { items: [], storageValid: false };
+    }
+  });
+  const keranjangStorageValidRef = useRef(keranjangAwal.storageValid);
+  const pesanKeranjangStorageDitampilkanRef = useRef(false);
   const [daftarProduk, setDaftarProduk] = useState(() => {
     try {
       if (!KUNCI_STORAGE_PRODUK) return [];
       const data = localStorage.getItem(KUNCI_STORAGE_PRODUK);
       return data ? JSON.parse(data) : [];
-    } catch (e) {
+    } catch (error) {
+      console.error('Gagal memuat produk kasir:', error);
       return [];
     }
   });
 
   // State Keranjang dengan dukungan localStorage (Persistence)
-  const [keranjang, setKeranjang] = useState(() => {
-    try {
-      const data = localStorage.getItem(KUNCI_STORAGE_KERANJANG);
-      return data
-        ? JSON.parse(data).map((item) => ({
-            ...item,
-            qty: roundQuantity(item.qty),
-            subtotal: calculateSubtotal(item.hargaJualSatuan, item.qty)
-          }))
-        : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [keranjang, setKeranjang] = useState(keranjangAwal.items);
 
   const [metodePembayaran, setMetodePembayaran] = useState('CASH');
   const [jumlahUangDiterima, setJumlahUangDiterima] = useState('');
@@ -67,21 +108,30 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
   // State untuk Draf Transaksi (Tahan & Panggil Nota)
   const [daftarDraf, setDaftarDraf] = useState(() => {
     try {
-      const data = localStorage.getItem(KUNCI_STORAGE_DRAF);
-      return data ? JSON.parse(data) : [];
+      return bacaArrayStorageKasir(KUNCI_STORAGE_DRAF, 'Draf transaksi');
     } catch (e) {
+      console.error('Gagal memuat draf transaksi:', e);
       return [];
     }
   });
 
   // Simpan keranjang ke localStorage setiap kali ada perubahan item
   useEffect(() => {
-    try {
-      localStorage.setItem(KUNCI_STORAGE_KERANJANG, JSON.stringify(keranjang));
-    } catch (e) {
-      console.error("Gagal menyimpan keranjang ke storage:", e);
+    if (!KUNCI_STORAGE_KERANJANG) return;
+    if (!keranjangStorageValidRef.current) {
+      if (!pesanKeranjangStorageDitampilkanRef.current) {
+        pesanKeranjangStorageDitampilkanRef.current = true;
+        alert('Data keranjang lokal tidak dapat dibaca. Kosongkan keranjang dengan tombol hapus sebelum mulai transaksi baru.');
+      }
+      return;
     }
-  }, [keranjang]);
+    try {
+      simpanArrayStorageKasir(KUNCI_STORAGE_KERANJANG, keranjang, 'Keranjang kasir');
+    } catch (e) {
+      console.error('Gagal menyimpan keranjang ke storage:', e);
+      alert('Keranjang hanya tersimpan sementara di perangkat ini. Periksa penyimpanan sebelum melanjutkan.');
+    }
+  }, [keranjang, KUNCI_STORAGE_KERANJANG]);
 
   useEffect(() => {
     const muatProdukTerbaru = () => {
@@ -106,19 +156,24 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
   }, [KUNCI_STORAGE_PRODUK]);
 
   const simpanDrafKeStorage = (drafBaru) => {
+    bacaArrayStorageKasir(KUNCI_STORAGE_DRAF, 'Draf transaksi');
+    simpanArrayStorageKasir(KUNCI_STORAGE_DRAF, drafBaru, 'Draf transaksi');
     setDaftarDraf(drafBaru);
-    localStorage.setItem(KUNCI_STORAGE_DRAF, JSON.stringify(drafBaru));
   };
 
   const simpanProdukKeStorage = (produkBaru, produkSebelumnya) => {
-    setDaftarProduk(produkBaru);
     if (!KUNCI_STORAGE_PRODUK) {
       throw new Error('ID toko aktif tidak tersedia. Produk tidak dapat disimpan.');
     }
-    localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(produkBaru));
+    try {
+      localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(produkBaru));
+    } catch (error) {
+      throw new Error('Daftar produk tidak dapat disimpan ke penyimpanan lokal.', { cause: error });
+    }
+    setDaftarProduk(produkBaru);
     beriTahuProdukDiperbarui();
     void antrikanPerubahanProdukDanSinkronkan(
-      storeId,
+      storeIdAktif,
       produkSebelumnya,
       produkBaru
     );
@@ -387,9 +442,19 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
         }
       }
     }
+    try {
+      if (KUNCI_STORAGE_KERANJANG) {
+        hapusStorageKasir(KUNCI_STORAGE_KERANJANG, 'Keranjang kasir');
+      }
+    } catch (error) {
+      console.error('Gagal menghapus keranjang dari penyimpanan lokal:', error);
+      alert('Keranjang tidak dapat dikosongkan dengan aman. Periksa penyimpanan lalu coba kembali.');
+      return false;
+    }
+    keranjangStorageValidRef.current = true;
     setKeranjang([]);
     setJumlahUangDiterima('');
-    localStorage.removeItem(KUNCI_STORAGE_KERANJANG);
+    return true;
   };
 
   // FUNGSI TAHAN TRANSAKSI (HOLD)
@@ -398,14 +463,29 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
 
     const drafBaruItem = {
       idDraf: `DRAF-${Date.now()}`,
+      store_id: storeIdAktif || null,
       waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       catatan: catatan || `Draf ${daftarDraf.length + 1}`,
       items: [...keranjang]
     };
 
     const drafBaruList = [drafBaruItem, ...daftarDraf];
-    simpanDrafKeStorage(drafBaruList);
-    resetKeranjang({ pertahankanKuotaEceran: true });
+    try {
+      simpanDrafKeStorage(drafBaruList);
+    } catch (error) {
+      console.error('Gagal menyimpan draf transaksi:', error);
+      alert('Draf tidak berhasil disimpan. Keranjang tetap tersedia.');
+      return false;
+    }
+    if (!resetKeranjang({ pertahankanKuotaEceran: true })) {
+      try {
+        simpanDrafKeStorage(daftarDraf);
+      } catch (error) {
+        console.error('Gagal membatalkan draf setelah keranjang gagal dikosongkan:', error);
+        alert('Draf mungkin sudah tersimpan, tetapi keranjang belum dikosongkan. Periksa draf sebelum mencoba lagi.');
+      }
+      return false;
+    }
     return true;
   };
 
@@ -420,19 +500,33 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       }
     }
 
-    setKeranjang(
-      drafTarget.items.map((item) => ({
+    const keranjangBaru = drafTarget.items.map((item) => ({
         ...item,
         qty: roundQuantity(item.qty),
         subtotal: calculateSubtotal(item.hargaJualSatuan, item.qty)
-      }))
-    );
-    hapusDraf(idDraf);
+      }));
+    try {
+      if (KUNCI_STORAGE_KERANJANG) {
+        simpanArrayStorageKasir(KUNCI_STORAGE_KERANJANG, keranjangBaru, 'Keranjang kasir');
+      }
+      simpanDrafKeStorage(daftarDraf.filter((d) => d.idDraf !== idDraf));
+      setKeranjang(keranjangBaru);
+    } catch (error) {
+      console.error('Gagal memanggil draf transaksi:', error);
+      alert('Draf tidak dapat dipanggil dengan aman. Data draf tetap tersedia.');
+    }
   };
 
   const hapusDraf = (idDraf) => {
     const sisaDraf = daftarDraf.filter((d) => d.idDraf !== idDraf);
-    simpanDrafKeStorage(sisaDraf);
+    try {
+      simpanDrafKeStorage(sisaDraf);
+      return true;
+    } catch (error) {
+      console.error('Gagal menghapus draf transaksi:', error);
+      alert('Draf tidak dapat dihapus dari penyimpanan lokal.');
+      return false;
+    }
   };
 
   const produkKeranjangBerubah = keranjang
@@ -473,6 +567,10 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
     }
     if (!KUNCI_STORAGE_PRODUK) {
       alert('ID toko aktif tidak tersedia. Transaksi belum diproses.');
+      return false;
+    }
+    if (!idKasirAktif) {
+      alert('Sesi kasir tidak tersedia. Silakan masuk kembali sebelum memproses transaksi.');
       return false;
     }
 
@@ -555,6 +653,14 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
 
     const tglSekarang = new Date();
     const formatTanggal = tglSekarang.toISOString().slice(0, 10).replace(/-/g, '');
+    let idTransaksi;
+    try {
+      idTransaksi = buatIdTransaksi();
+    } catch (error) {
+      console.error('Gagal membuat ID transaksi unik:', error);
+      alert('ID transaksi aman tidak dapat dibuat. Pembayaran belum diproses.');
+      return false;
+    }
     const noStruk = `TRX-${formatTanggal}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     let daftarProdukBaru = [...produkOperasional];
@@ -578,10 +684,15 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
     }
 
     const dataTransaksiBaru = {
+      idTransaksi,
       noStruk,
       tanggal: tglSekarang.toISOString(),
-      idKasir: idKasir || "USR-001",
-      namaKasir: namaKasir || "Rofi",
+      store_id: storeIdAktif,
+      idKasir: idKasirAktif,
+      namaKasir: namaKasirAktif,
+      statusSync: 'pending',
+      statusSyncDiperbaruiPada: tglSekarang.toISOString(),
+      pesanErrorSync: '',
       items: keranjang.map((item) => ({
         ...item,
         qty: roundQuantity(item.qty),
@@ -594,23 +705,50 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       kembalian: metodePembayaran === 'CASH' ? kembalian : 0
     };
 
+    let riwayatLama;
     try {
-      const riwayatLama = JSON.parse(localStorage.getItem(KUNCI_STORAGE_TRANSAKSI) || '[]');
+      riwayatLama = bacaArrayStorageKasir(KUNCI_STORAGE_TRANSAKSI, 'Riwayat transaksi');
+      const produkTersimpanSebelumnya = fiturAktif.ubahStok
+        ? JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]')
+        : null;
       const riwayatBaru = [dataTransaksiBaru, ...riwayatLama];
-      localStorage.setItem(KUNCI_STORAGE_TRANSAKSI, JSON.stringify(riwayatBaru));
+      simpanArrayStorageKasir(KUNCI_STORAGE_TRANSAKSI, riwayatBaru, 'Riwayat transaksi');
       if (fiturAktif.ubahStok) {
-        simpanProdukKeStorage(daftarProdukBaru, produkOperasional);
+        try {
+          simpanProdukKeStorage(daftarProdukBaru, produkOperasional);
+        } catch (error) {
+          simpanArrayStorageKasir(KUNCI_STORAGE_TRANSAKSI, riwayatLama, 'Riwayat transaksi');
+          if (produkTersimpanSebelumnya !== null) {
+            localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(produkTersimpanSebelumnya));
+            setDaftarProduk(produkOperasional);
+          }
+          throw error;
+        }
       }
-      localStorage.removeItem(KUNCI_STORAGE_KERANJANG);
+      if (KUNCI_STORAGE_KERANJANG) {
+        try {
+          hapusStorageKasir(KUNCI_STORAGE_KERANJANG, 'Keranjang kasir');
+        } catch (error) {
+          simpanArrayStorageKasir(KUNCI_STORAGE_TRANSAKSI, riwayatLama, 'Riwayat transaksi');
+          if (fiturAktif.ubahStok && produkTersimpanSebelumnya !== null) {
+            localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(produkTersimpanSebelumnya));
+            setDaftarProduk(produkOperasional);
+          }
+          throw error;
+        }
+      }
     } catch (e) {
-      console.error("Gagal menyimpan riwayat transaksi atau stok ke storage:", e);
-      alert('❌ Gagal menyimpan data transaksi ke penyimpanan lokal. Transaksi dibatalkan untuk menjaga konsistensi data.');
+      console.error('Gagal menyimpan transaksi, stok, atau keranjang lokal:', e);
+      alert('❌ Transaksi belum dapat disimpan dengan aman. Periksa penyimpanan lalu coba kembali.');
       return false;
     }
 
     setTransaksiSelesai(dataTransaksiBaru);
     setKeranjang([]);
     setJumlahUangDiterima('');
+    void sinkronkanPenjualanPending(storeIdAktif).catch((error) => {
+      console.error('Sinkronisasi transaksi penjualan tertunda:', error);
+    });
     return true;
   };
 
@@ -619,13 +757,17 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       alert('ID toko aktif tidak tersedia. Retur/tukar belum diproses.');
       return false;
     }
+    if (!idKasirAktif) {
+      alert('Sesi kasir tidak tersedia. Silakan masuk kembali sebelum memproses retur/tukar.');
+      return false;
+    }
     let produkOperasional;
     let riwayatLama;
     let fiturAktif;
     try {
       fiturAktif = bacaAturanModeAktif();
       produkOperasional = JSON.parse(localStorage.getItem(KUNCI_STORAGE_PRODUK) || '[]');
-      riwayatLama = JSON.parse(localStorage.getItem(KUNCI_STORAGE_TRANSAKSI) || '[]');
+      riwayatLama = bacaArrayStorageKasir(KUNCI_STORAGE_TRANSAKSI, 'Riwayat transaksi');
       if (!Array.isArray(produkOperasional) || !Array.isArray(riwayatLama)) {
         throw new Error('Format data produk atau transaksi tidak valid.');
       }
@@ -701,8 +843,9 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
     const transaksiRetur = {
       noStruk: idRetur,
       tanggal: tglSekarang.toISOString(),
-      idKasir: idKasir || 'USR-001',
-      namaKasir: namaKasir || 'Rofi',
+      store_id: storeIdAktif,
+      idKasir: idKasirAktif,
+      namaKasir: namaKasirAktif,
       tipeTransaksi: 'RETUR_TUKAR',
       items: [...itemsKembali, ...itemsPengganti],
       totalQtyItems: roundQuantity(
@@ -719,10 +862,10 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
         : 0
     };
     const dataReturFirestore = {
-      store_id: storeId,
+      store_id: storeIdAktif,
       timestamp: tglSekarang.toISOString(),
       createdAt: serverTimestamp(),
-      kasir: namaKasir || idKasir || 'Pengguna',
+      kasir: namaKasirAktif,
       barangKembali: itemsKembali.map((item) => ({
         idProduk: item.idProduk,
         namaProduk: item.namaProduk,
@@ -753,10 +896,18 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       jumlahDiterima: Number(jumlahDiterima) || 0
     };
 
-    const produkTersimpanSebelumnya = fiturAktif.ubahStok
-      ? localStorage.getItem(KUNCI_STORAGE_PRODUK)
-      : null;
-    const transaksiTersimpanSebelumnya = localStorage.getItem(KUNCI_STORAGE_TRANSAKSI);
+    let produkTersimpanSebelumnya;
+    let transaksiTersimpanSebelumnya;
+    try {
+      produkTersimpanSebelumnya = fiturAktif.ubahStok
+        ? localStorage.getItem(KUNCI_STORAGE_PRODUK)
+        : null;
+      transaksiTersimpanSebelumnya = localStorage.getItem(KUNCI_STORAGE_TRANSAKSI);
+    } catch (error) {
+      console.error('Gagal membuat cadangan lokal sebelum retur/tukar:', error);
+      alert('❌ Data lokal tidak dapat dibaca untuk mengamankan retur/tukar.');
+      return false;
+    }
     const batalkanPerubahanLokal = () => {
       if (fiturAktif.ubahStok) {
         if (produkTersimpanSebelumnya === null) localStorage.removeItem(KUNCI_STORAGE_PRODUK);
@@ -770,9 +921,10 @@ export function useKasir({ storeId, idKasir, namaKasir } = {}) {
       if (fiturAktif.ubahStok) {
         localStorage.setItem(KUNCI_STORAGE_PRODUK, JSON.stringify(daftarProdukBaru));
       }
-      localStorage.setItem(
+      simpanArrayStorageKasir(
         KUNCI_STORAGE_TRANSAKSI,
-        JSON.stringify([transaksiRetur, ...riwayatLama])
+        [transaksiRetur, ...riwayatLama],
+        'Riwayat transaksi'
       );
     } catch (error) {
       try {

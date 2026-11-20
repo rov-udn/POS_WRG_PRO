@@ -5,8 +5,14 @@ import { buatKunciStorageProduk } from '../../features/produk/utils/produkStorag
 const AKHIRAN_KUNCI_ANTREAN = ':sinkronisasi-tertunda';
 const sinkronisasiAktif = new Map();
 
+const normalisasiStoreId = (storeId) => {
+  const idToko = typeof storeId === 'string' ? storeId.trim() : '';
+  if (!idToko) throw new Error('ID toko aktif tidak tersedia.');
+  return idToko;
+};
+
 const buatKunciAntrean = (storeId) => {
-  const kunciProduk = buatKunciStorageProduk(storeId);
+  const kunciProduk = buatKunciStorageProduk(normalisasiStoreId(storeId));
   return kunciProduk ? `${kunciProduk}${AKHIRAN_KUNCI_ANTREAN}` : null;
 };
 
@@ -25,13 +31,15 @@ const bacaArrayStorage = (kunci, label) => {
 };
 
 const bacaProdukLokal = (storeId) => {
-  const kunciProduk = buatKunciStorageProduk(storeId);
+  const idToko = normalisasiStoreId(storeId);
+  const kunciProduk = buatKunciStorageProduk(idToko);
   if (!kunciProduk) throw new Error('ID toko aktif tidak tersedia.');
   return bacaArrayStorage(kunciProduk, 'Daftar produk');
 };
 
 export function antrikanProdukUntukSinkronisasi(storeId, daftarProduk) {
-  const kunciAntrean = buatKunciAntrean(storeId);
+  const idToko = normalisasiStoreId(storeId);
+  const kunciAntrean = buatKunciAntrean(idToko);
   if (!kunciAntrean) throw new Error('ID toko aktif tidak tersedia.');
   const antrean = bacaArrayStorage(kunciAntrean, 'Antrean sinkronisasi produk');
   const idAntrean = new Set(antrean);
@@ -49,7 +57,8 @@ export function antrikanProdukUntukSinkronisasi(storeId, daftarProduk) {
 }
 
 async function prosesSinkronisasiProduk(storeId) {
-  const kunciAntrean = buatKunciAntrean(storeId);
+  const idToko = normalisasiStoreId(storeId);
+  const kunciAntrean = buatKunciAntrean(idToko);
   if (!kunciAntrean) throw new Error('ID toko aktif tidak tersedia.');
 
   let berhasil = 0;
@@ -60,7 +69,7 @@ async function prosesSinkronisasiProduk(storeId) {
       return { status: 'offline', berhasil, tertunda: antrean.length };
     }
 
-    const produkDiLokal = bacaProdukLokal(storeId);
+    const produkDiLokal = bacaProdukLokal(idToko);
     const produkPerId = new Map(
       produkDiLokal.map((produk) => [produk.idProduk, produk])
     );
@@ -68,7 +77,7 @@ async function prosesSinkronisasiProduk(storeId) {
       const batch = writeBatch(db);
       antrean.slice(awal, awal + 500).forEach((idProduk) => {
         const produk = produkPerId.get(idProduk);
-        const referensiProduk = doc(db, 'stores', storeId, 'products', idProduk);
+        const referensiProduk = doc(db, 'stores', idToko, 'products', idProduk);
         if (produk) {
           batch.set(referensiProduk, produk, { merge: true });
         } else {
@@ -78,7 +87,7 @@ async function prosesSinkronisasiProduk(storeId) {
       await batch.commit();
     }
 
-    const produkTerbaruDiLokal = bacaProdukLokal(storeId);
+    const produkTerbaruDiLokal = bacaProdukLokal(idToko);
     const produkTerbaruPerId = new Map(
       produkTerbaruDiLokal.map((produk) => [produk.idProduk, produk])
     );
@@ -105,26 +114,32 @@ async function prosesSinkronisasiProduk(storeId) {
 }
 
 export function sinkronkanProdukPending(storeId) {
-  if (!storeId) return Promise.reject(new Error('ID toko aktif tidak tersedia.'));
-  if (sinkronisasiAktif.has(storeId)) return sinkronisasiAktif.get(storeId);
+  let idToko;
+  try {
+    idToko = normalisasiStoreId(storeId);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  if (sinkronisasiAktif.has(idToko)) return sinkronisasiAktif.get(idToko);
 
   const janjiSinkronisasi = Promise.resolve()
-    .then(() => prosesSinkronisasiProduk(storeId))
-    .finally(() => sinkronisasiAktif.delete(storeId));
-  sinkronisasiAktif.set(storeId, janjiSinkronisasi);
+    .then(() => prosesSinkronisasiProduk(idToko))
+    .finally(() => sinkronisasiAktif.delete(idToko));
+  sinkronisasiAktif.set(idToko, janjiSinkronisasi);
   return janjiSinkronisasi;
 }
 
 export async function antrikanDanSinkronkanProduk(storeId, daftarProduk) {
   try {
-    antrikanProdukUntukSinkronisasi(storeId, daftarProduk);
+    const idToko = normalisasiStoreId(storeId);
+    antrikanProdukUntukSinkronisasi(idToko, daftarProduk);
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return {
         status: 'offline',
         pesan: 'Tersimpan lokal; sinkronisasi menunggu koneksi online.'
       };
     }
-    const hasil = await sinkronkanProdukPending(storeId);
+    const hasil = await sinkronkanProdukPending(idToko);
     if (hasil.status === 'offline') {
       return {
         ...hasil,
@@ -152,29 +167,38 @@ export async function antrikanPerubahanProdukDanSinkronkan(
   produkSebelumnya,
   produkTerbaru
 ) {
-  const produkLamaPerId = new Map(
-    (Array.isArray(produkSebelumnya) ? produkSebelumnya : [])
-      .filter((produk) => produk?.idProduk)
-      .map((produk) => [produk.idProduk, produk])
-  );
-  const produkBaruPerId = new Map(
-    (Array.isArray(produkTerbaru) ? produkTerbaru : [])
-      .filter((produk) => produk?.idProduk)
-      .map((produk) => [produk.idProduk, produk])
-  );
-  const idProdukBerubah = new Set([
-    ...produkLamaPerId.keys(),
-    ...produkBaruPerId.keys()
-  ]);
-  const daftarIdProdukBerubah = [...idProdukBerubah].filter(
-    (idProduk) =>
-      JSON.stringify(produkLamaPerId.get(idProduk)) !==
-      JSON.stringify(produkBaruPerId.get(idProduk))
-  );
+  try {
+    const idToko = normalisasiStoreId(storeId);
+    const produkLamaPerId = new Map(
+      (Array.isArray(produkSebelumnya) ? produkSebelumnya : [])
+        .filter((produk) => produk?.idProduk)
+        .map((produk) => [produk.idProduk, produk])
+    );
+    const produkBaruPerId = new Map(
+      (Array.isArray(produkTerbaru) ? produkTerbaru : [])
+        .filter((produk) => produk?.idProduk)
+        .map((produk) => [produk.idProduk, produk])
+    );
+    const idProdukBerubah = new Set([
+      ...produkLamaPerId.keys(),
+      ...produkBaruPerId.keys()
+    ]);
+    const daftarIdProdukBerubah = [...idProdukBerubah].filter(
+      (idProduk) =>
+        JSON.stringify(produkLamaPerId.get(idProduk)) !==
+        JSON.stringify(produkBaruPerId.get(idProduk))
+    );
 
-  if (daftarIdProdukBerubah.length === 0) {
-    return { status: 'synced', berhasil: 0 };
+    if (daftarIdProdukBerubah.length === 0) {
+      return { status: 'synced', berhasil: 0 };
+    }
+
+    return antrikanDanSinkronkanProduk(idToko, daftarIdProdukBerubah);
+  } catch (error) {
+    console.error('Sinkronisasi perubahan produk gagal.', error);
+    return {
+      status: 'failed',
+      pesan: `Sinkronisasi produk tertunda: ${error.message}`
+    };
   }
-
-  return antrikanDanSinkronkanProduk(storeId, daftarIdProdukBerubah);
 }

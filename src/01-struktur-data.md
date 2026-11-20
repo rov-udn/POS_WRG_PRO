@@ -104,9 +104,14 @@ Ekstensi schema produk mendukung manajemen satuan ganda dan varian produk.
 - **Log Kerugian/Shrinkage**: Mencatat barang rusak/susut (`idUnpack`, `qtyPcs`, `alasan`, `hargaModalEceran`, `totalKerugian`).
 
 ## 5. Transaksi & Retur Kasir (`TRANSACTION_SCHEMA`)
-- **Transaksi Standar**: Memuat rincian item, total bayar, metode pembayaran, kasir, dan waktu.
+- **Transaksi Standar**: Memuat `idTransaksi` (UUID), `noStruk`, `store_id`, rincian item, total bayar, metode pembayaran, kasir, dan waktu.
+- **Status sinkronisasi lokal**: `statusSync` berisi `pending`, `syncing`, `synced`, atau `failed`. Status dan pesan error disimpan pada record lokal dan tidak ikut dikirim ke dokumen Firestore.
+- **Antrean**: Riwayat lokal menjadi sumber antrean; hanya transaksi penjualan berstatus `pending` yang diproses. Retur dan draf tidak ikut terkirim melalui antrean penjualan.
+- **Document ID Firestore**: `stores/{store_id}/transactions/{idTransaksi}`. Penulisan ulang memakai document ID yang sama agar retry tidak membuat dokumen transaksi kedua.
 - **Retur/Tukar (`RETUR_TUKAR`)**: Memuat arah item (`MASUK`/`KELUAR`), serta arus kas (`arusKasMasuk`, `arusKasMasukNonTunai`, `arusKasKeluar`).
-- **Draf Kasir**: Menyimpan transaksi tertahan (`idDraf`, `waktu`, `catatan`, `items`).
+- **Draf Kasir**: Menyimpan transaksi tertahan (`idDraf`, `store_id`, `waktu`, `catatan`, `items`) secara lokal; draf tidak menjadi transaksi penjualan Firestore.
+- **LocalStorage kasir**: Keranjang, draf, dan riwayat/antrean transaksi memakai key berbeda dengan ruang lingkup toko. Bila `store_id` belum tersedia, key sementara dibatasi ke pengguna; tanpa identitas pengguna, data tidak disimpan ke key bersama.
+- **Data localStorage lama**: Key global sebelum pemisahan ruang lingkup tidak dimigrasikan otomatis karena record lama belum tentu memiliki `store_id`.
 
 ## 6. Riwayat Retur & Tukar (Firestore: `retur_logs`)
 - **Identitas & waktu**: `store_id`, `timestamp` (ISO), `createdAt` (waktu server Firestore), dan `kasir`.
@@ -449,14 +454,16 @@ Digunakan untuk menyimpan transaksi penjualan yang sudah selesai.
 Collection:
 
 ```text
-transactions/
+stores/{store_id}/transactions/{idTransaksi}
 ```
 
 Schema:
 
 ```js
 export const TRANSACTION_SCHEMA = {
+  idTransaksi: "UUID",
   noStruk: "TRX-20261005-0001",
+  store_id: "STORE_ID",
   tanggal: "2026-10-05T15:30:00Z",
   idKasir: "USR-001",
   namaKasir: "Rofi",
@@ -470,6 +477,8 @@ export const TRANSACTION_SCHEMA = {
   kembalian: 20000
 };
 ```
+
+Record penjualan yang menunggu sinkronisasi di localStorage juga memiliki `statusSync` dan `statusSyncDiperbaruiPada`; record gagal dapat dicoba ulang.
 
 ## Nilai `metodePembayaran`
 
@@ -603,9 +612,9 @@ Struktur database MVP:
 ```text
 database
 │
-├── products/
-│
-├── transactions/
+├── stores/{store_id}/
+│   ├── products/
+│   └── transactions/{idTransaksi}
 │
 ├── restockLogs/
 │

@@ -7,12 +7,15 @@ import ImportProdukJson from './components/ImportProdukJson';
 import FilterKategori from '../../components/ui/FilterKategori';
 import { filterProdukKurangLengkap, filterProdukRugi } from './utils/cekRugi';
 import { formatRupiah, hitungMarginPersen } from './utils/produkUtils';
+import { resetDataProduk } from './utils/resetDataUtils';
 
 export default function ProdukPage({ storeId }) {
   const daftarRef = useRef(null);
   const detailRef = useRef(null);
   const [filterAktif, setFilterAktif] = useState(null);
   const [kategoriAktif, setKategoriAktif] = useState('');
+  const [sedangReset, setSedangReset] = useState(false);
+  const [pesanErrorReset, setPesanErrorReset] = useState('');
   const {
     daftarProduk, // Ini sudah berupa array hasil filter dari hook
     daftarProdukAsli,
@@ -70,6 +73,25 @@ export default function ProdukPage({ storeId }) {
     pilihProduk(item);
   };
 
+  const tanganiResetDataProduk = async () => {
+    if (!window.confirm(
+      'Reset total data produk toko ini? Semua produk di Firestore (koleksi products dan produks) serta penyimpanan lokal toko ini akan dihapus permanen.'
+    )) {
+      return;
+    }
+
+    setSedangReset(true);
+    setPesanErrorReset('');
+    try {
+      await resetDataProduk(storeId);
+      window.location.reload();
+    } catch (error) {
+      setPesanErrorReset(error.message || 'Data produk gagal dibersihkan.');
+    } finally {
+      setSedangReset(false);
+    }
+  };
+
   return (
     <div className="w-full p-4 space-y-4">
       {/* Header Halaman */}
@@ -81,6 +103,14 @@ export default function ProdukPage({ storeId }) {
             onImportComplete={setDaftarProdukAsli}
           />
           <button
+            type="button"
+            onClick={tanganiResetDataProduk}
+            disabled={sedangReset || !storeId}
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sedangReset ? 'Membersihkan...' : 'Reset & Bersihkan Data Produk'}
+          </button>
+          <button
             onClick={bukaFormTambah}
             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
           >
@@ -88,6 +118,12 @@ export default function ProdukPage({ storeId }) {
           </button>
         </div>
       </div>
+
+      {pesanErrorReset && (
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {pesanErrorReset}
+        </p>
+      )}
 
       {daftarProdukRugi.length > 0 && (
         <div

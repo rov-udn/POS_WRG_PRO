@@ -55,7 +55,13 @@ export default function App() {
       case 'belanja':
         return <BelanjaPage key={profil.store_id} storeId={profil.store_id} />;
       case 'kasir':
-        return <KasirPage profil={profil} pengguna={pengguna} />;
+        return (
+          <KasirPage
+            key={`${profil.store_id || 'tanpa-toko'}:${pengguna?.uid || 'tanpa-pengguna'}`}
+            profil={profil}
+            pengguna={pengguna}
+          />
+        );
       case 'produk':
         return <ProdukPage key={profil.store_id} storeId={profil.store_id} />;
       case 'gudang':
@@ -63,7 +69,14 @@ export default function App() {
       case 'history':
         return <RiwayatPage profil={profil} pengguna={pengguna} />;
       case 'laporan':
-        return <LaporanPage role={role} />;
+        return (
+          <LaporanPage
+            key={`${profil.store_id || 'tanpa-toko'}:${pengguna?.uid || 'tanpa-pengguna'}`}
+            role={role}
+            storeId={profil.store_id}
+            idKasir={pengguna?.uid}
+          />
+        );
       case 'setting':
         return (
           <SettingPage

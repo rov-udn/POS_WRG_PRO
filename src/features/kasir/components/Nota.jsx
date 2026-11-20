@@ -1,8 +1,13 @@
 import React from 'react';
 import { calculateSubtotal, formatQuantity } from '../../../utils/formatQuantity';
 
-export default function Nota({ transaksi, onTutupNota }) {
+export default function Nota({ transaksi, namaToko, alamatToko, onTutupNota }) {
   if (!transaksi) return null;
+
+  const namaTokoNota = typeof namaToko === 'string' && namaToko.trim()
+    ? namaToko.trim()
+    : 'Warung';
+  const alamatTokoNota = typeof alamatToko === 'string' ? alamatToko.trim() : '';
 
   const handleCetak = () => {
     // Jalankan perintah print browser
@@ -53,8 +58,10 @@ export default function Nota({ transaksi, onTutupNota }) {
           {/* Area Struk yang akan dicetak */}
           <div id="area-struk-thermal" className="p-6 overflow-y-auto font-mono text-xs space-y-3 bg-white text-gray-800 flex-1">
             <div className="text-center space-y-0.5 pb-3 border-b border-dashed border-gray-300">
-              <h2 className="font-bold text-sm uppercase">WARUNG HAERUDIN</h2>
-              <p className="text-[10px] text-gray-500">Serang, Banten</p>
+              <h2 className="font-bold text-sm uppercase">{namaTokoNota}</h2>
+              {alamatTokoNota && (
+                <p className="text-[10px] text-gray-500">{alamatTokoNota}</p>
+              )}
               <p className="text-[10px] text-gray-500">{new Date(transaksi.tanggal).toLocaleString('id-ID')}</p>
               <p className="text-[10px] text-gray-600 font-bold mt-1">No: {transaksi.noStruk}</p>
             </div>

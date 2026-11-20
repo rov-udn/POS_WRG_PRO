@@ -45,6 +45,8 @@ export default function RiwayatPage({ profil, pengguna }) {
 
       {tabAktif === 'penjualan' ? (
         <RiwayatPenjualan
+          storeId={profil?.store_id}
+          idKasir={pengguna?.uid}
           onPilihTransaksi={(trx) => setTransaksiAktif(trx)}
         />
       ) : (

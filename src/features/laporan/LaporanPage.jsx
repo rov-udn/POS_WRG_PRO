@@ -3,14 +3,16 @@ import RingkasanStatistik from './components/RingkasanStatistik';
 import RekapPembayaran from './components/RekapPembayaran';
 import ProdukTerlaris from './components/ProdukTerlaris';
 import { ambilShiftTertutup, KUNCI_STORAGE_SHIFT } from './utils/shiftStorage';
+import {
+  bacaArrayStorageKasir,
+  buatKunciStorageKasir
+} from '../kasir/utils/kasirStorage';
 
-const KUNCI_STORAGE_TRANSAKSI = 'pos_warung_transactions';
-
-export default function LaporanPage({ role }) {
+export default function LaporanPage({ role, storeId, idKasir }) {
+  const kunciStorageTransaksi = buatKunciStorageKasir('transactions', { storeId, idKasir });
   const [daftarTransaksi] = useState(() => {
     try {
-      const data = localStorage.getItem(KUNCI_STORAGE_TRANSAKSI);
-      return data ? JSON.parse(data) : [];
+      return bacaArrayStorageKasir(kunciStorageTransaksi, 'Riwayat transaksi untuk laporan');
     } catch (error) {
       console.error('Gagal memuat data transaksi untuk laporan:', error);
       return [];

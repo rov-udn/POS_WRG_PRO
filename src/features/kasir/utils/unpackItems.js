@@ -3,21 +3,14 @@ export const EVENT_UNPACK_DIPERBARUI = 'active-unpack-items-updated';
 export const KUNCI_STORAGE_QUICK_BUTTONS = 'pos_warung_quick_buttons';
 export const EVENT_QUICK_BUTTONS_UPDATED = 'quick-buttons-updated';
 
-export const TOMBOL_CEPAT_DEFAULT = [
-  { id: 'm1', label: 'Minuman', harga: 1000, kategori: 'minuman' },
-  { id: 'j1', label: 'Jajanan', harga: 1000, kategori: 'jajanan' },
-  { id: 'j2', label: 'Jajanan', harga: 2000, kategori: 'jajanan' }
-];
-
 export function bacaTombolCepat() {
   const data = localStorage.getItem(KUNCI_STORAGE_QUICK_BUTTONS);
-  if (!data) return TOMBOL_CEPAT_DEFAULT;
+  if (!data) return [];
 
   const hasil = JSON.parse(data);
   if (!Array.isArray(hasil)) {
     throw new Error('Daftar tombol cepat harus berupa daftar.');
   }
-  if (hasil.length === 0) return TOMBOL_CEPAT_DEFAULT;
 
   const isValid = hasil.every((tombol) =>
     tombol &&

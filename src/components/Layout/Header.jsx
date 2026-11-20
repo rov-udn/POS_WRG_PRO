@@ -8,12 +8,43 @@ export default function Header({
   labelRole,
   onKeluar,
   onTutupShift,
-  isKasir
+  isKasir,
+  statusSinkronisasiTransaksi = {},
+  onKirimAntreanTransaksi
 }) {
   const { isSimpleMode, ubahMode, sedangMengubahMode } = useAppMode();
   const [isOnline, setIsOnline] = useState(
     () => typeof navigator !== 'undefined' && navigator.onLine
   );
+  const [tampilPanelSync, setTampilPanelSync] = useState(false);
+  const {
+    pending = 0,
+    syncing = 0,
+    synced = 0,
+    failed = 0,
+    error = false
+  } = statusSinkronisasiTransaksi;
+  const jumlahPerluKirim = pending + failed;
+  const labelStatusSync = error
+    ? 'Status data bermasalah'
+    : syncing > 0
+      ? `Mengirim ${syncing}${pending > 0 ? ` · ${pending} menunggu` : ''}`
+      : pending > 0 && failed > 0
+        ? `${pending} menunggu · ${failed} gagal`
+        : pending > 0
+          ? `${pending} menunggu`
+          : failed > 0
+            ? `${failed} gagal`
+            : synced > 0
+              ? 'Semua tersinkron'
+              : 'Belum ada transaksi';
+  const warnaStatusSync = error || failed > 0
+    ? 'border-red-200 bg-red-50 text-red-700'
+    : pending > 0
+      ? 'border-amber-200 bg-amber-50 text-amber-800'
+      : syncing > 0
+        ? 'border-blue-200 bg-blue-50 text-blue-700'
+        : 'border-green-200 bg-green-50 text-green-700';
 
   useEffect(() => {
     const tandaiOnline = () => setIsOnline(true);
@@ -45,6 +76,89 @@ export default function Header({
           <span className="shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
             {labelRole}
           </span>
+        </div>
+        <div className="relative mt-1 flex min-w-0 items-center gap-1.5">
+          <span
+            role="status"
+            aria-live="polite"
+            className={`inline-flex min-h-7 shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-medium sm:text-xs ${
+              isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
+          <button
+            type="button"
+            aria-label={`Status pengiriman transaksi: ${labelStatusSync}. Buka detail sinkronisasi.`}
+            aria-expanded={tampilPanelSync}
+            onClick={() => setTampilPanelSync((terbuka) => !terbuka)}
+            className={`inline-flex min-h-7 max-w-[min(60vw,15rem)] items-center rounded-full border px-2 py-1 text-[10px] font-semibold sm:text-xs ${warnaStatusSync}`}
+          >
+            <span className="truncate" aria-live="polite">{labelStatusSync}</span>
+          </button>
+          {tampilPanelSync && (
+            <section
+              role="dialog"
+              aria-label="Status sinkronisasi transaksi"
+              className="absolute left-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border border-gray-200 bg-white p-4 text-left shadow-xl"
+            >
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-bold text-gray-800">Sinkronisasi transaksi</h2>
+                <button
+                  type="button"
+                  aria-label="Tutup status sinkronisasi"
+                  onClick={() => setTampilPanelSync(false)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="mb-3 text-xs text-gray-600">
+                Koneksi {isOnline ? 'online' : 'offline'} · Pengiriman otomatis berjalan saat internet tersedia.
+              </p>
+              {error && (
+                <p role="alert" className="mb-3 rounded-lg bg-red-50 p-2 text-xs text-red-700">
+                  Status antrean tidak dapat dibaca. Periksa penyimpanan lokal.
+                </p>
+              )}
+              <dl className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-amber-50 p-2">
+                  <dt className="text-amber-800">Menunggu dikirim</dt>
+                  <dd className="font-bold text-amber-900">{pending}</dd>
+                </div>
+                <div className="rounded-lg bg-blue-50 p-2">
+                  <dt className="text-blue-800">Sedang dikirim</dt>
+                  <dd className="font-bold text-blue-900">{syncing}</dd>
+                </div>
+                <div className="rounded-lg bg-red-50 p-2">
+                  <dt className="text-red-800">Gagal dikirim</dt>
+                  <dd className="font-bold text-red-900">{failed}</dd>
+                </div>
+                <div className="rounded-lg bg-green-50 p-2">
+                  <dt className="text-green-800">Sudah tersinkron</dt>
+                  <dd className="font-bold text-green-900">{synced}</dd>
+                </div>
+              </dl>
+              {jumlahPerluKirim > 0 && (
+                <button
+                  type="button"
+                  onClick={onKirimAntreanTransaksi}
+                  disabled={!isOnline || syncing > 0 || error}
+                  aria-busy={syncing > 0}
+                  className="mt-3 min-h-10 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                >
+                  {syncing > 0
+                    ? 'Sedang mengirim...'
+                    : `Kirim ${jumlahPerluKirim} transaksi sekarang`}
+                </button>
+              )}
+              {!isOnline && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Tombol kirim tersedia kembali setelah perangkat online.
+                </p>
+              )}
+            </section>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1 whitespace-nowrap sm:gap-2">
@@ -98,15 +212,6 @@ export default function Header({
             ⏹
           </button>
         )}
-        <span
-          role="status"
-          aria-live="polite"
-          className={`inline-flex rounded-full px-2 py-1 text-[10px] font-medium sm:px-2.5 sm:text-xs ${
-            isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-          }`}
-        >
-          {isOnline ? 'Online' : 'Offline'}
-        </span>
         <button
           type="button"
           onClick={onKeluar}
